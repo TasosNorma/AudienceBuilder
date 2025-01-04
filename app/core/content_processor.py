@@ -237,7 +237,6 @@ class SyncAsyncContentProcessor:
         fernet = Fernet(os.environ['ENCRYPTION_KEY'].encode())
         self.decripted_api_key = fernet.decrypt(self.user.openai_api_key).decode()
         self.llm = ChatOpenAI(openai_api_key=self.decripted_api_key, model_name='gpt-4o-mini')
-        os.system('playwright install chromium')
 
     # This method creates a chain with the proper chain template so that we can insert the primary and secondary articles.
     def setup_chain(self):
