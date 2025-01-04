@@ -29,7 +29,7 @@ services:
     region: frankfurt
     runtime: python
     buildCommand: "pip install -r requirements.txt && pip install psycopg2-binary && pip install playwright && playwright install chromium"
-    startCommand: "celery -A celery_worker worker --loglevel=info --concurrency 4"
+    startCommand: "celery -A celery_worker worker --loglevel=info --concurrency 1 --max-memory-per-child=400000"
     autoDeploy: false
     envVars:
       - key: CELERY_BROKER_URL
