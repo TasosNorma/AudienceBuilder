@@ -4,13 +4,14 @@ import os
 from ..core.forms import UrlSubmit, PromptForm, SetupProfileForm,SettingsForm
 from ..core.content_processor import ContentProcessor,SyncContentProcessor, SyncAsyncContentProcessor
 from ..database.database import SessionLocal
-from ..database.models import Prompt, Profile, User
+from ..database.models import Prompt, Profile, User, ProcessingResult
 import asyncio
 import logging
 from cryptography.fernet import Fernet
 from ..api.prompt_operations import get_prompt
 from asgiref.sync import async_to_sync
 from celery_worker.tasks import process_url_task
+from datetime import datetime,timezone
 
 
 bp = Blueprint('base', __name__)
@@ -33,22 +34,36 @@ def check_onboarding():
 def base():
     form = UrlSubmit()
     result = None
+    db = SessionLocal()
 
     if form.validate_on_submit():
         try:
-            task = process_url_task.delay(form.url.data, current_user.id)
+            # Create pending record immediately
+            processing_result = ProcessingResult(
+                user_id=current_user.id,
+                url=form.url.data,
+                status="pending",
+                created_at_utc=datetime.now(timezone.utc)
+            )
+            db.add(processing_result)
+            db.commit()
+            # Start the task and add the ID to the database
+            task = process_url_task.delay(form.url.data, current_user.id, processing_result.id)
+            processing_result.task_id= task.id
+            db.commit()
             result = {
                 "status": "processing",
-                "message": "Your request is being processed. Please check back in a few moments.",
-                "task_id": task.id
+                "message": "Your request is being processed.",
+                "task_id": task.id,
+                "result_id": processing_result.id
             }
-            flash('Processing started. Results will be available shortly.', 'info')
         except Exception as e:
             result = {
-                "status":"error",
-                "message": f"An error occured: {str(e)}"
+                "status": "error",
+                "message": f"An error occurred: {str(e)}"
             }
-
+        finally:
+            db.close()
     return render_template('index.html', form=form, result=result)
 
 @bp.route('/prompts', methods =['GET','POST'])

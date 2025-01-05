@@ -6,30 +6,16 @@ from datetime import datetime, timezone
 import json
 
 @celery_app.task(bind=True)
-def process_url_task(self,url:str,user_id:int):
+def process_url_task(self,url:str,user_id:int,result_id:int):
     db = SessionLocal()
-    # Enter an entry to the database
-    processing_result = ProcessingResult(
-        user_id=user_id,
-        url=url,
-        status="pending",
-        task_id=self.request.id,
-        created_at_utc=datetime.now(timezone.utc)
-    )
-    db.add(processing_result)
-    db.commit()
-
-
     try:
         try:
-            try:
-                user = db.query(User).get(user_id)
-                processor = SyncAsyncContentProcessor(user)
-                result = processor.process_url(url)
-            except Exception as e:
-                print(f"Error processing URL {url}: {str(e)}")
-                raise
-
+            # Call the process url to get the result
+            user = db.query(User).get(user_id)
+            processor = SyncAsyncContentProcessor(user)
+            result = processor.process_url(url)
+            # Find the processing result and add all the relevant info
+            processing_result = db.query(ProcessingResult).get(result_id)
             processing_result.status = result["status"]
             processing_result.tweets = json.dumps(result.get("tweets", []))
             processing_result.tweet_count = result.get("tweet_count", 0)
