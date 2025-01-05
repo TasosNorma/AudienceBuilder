@@ -1,0 +1,56 @@
+# Use the slim base, but install system libraries
+FROM python:3.10-slim
+
+# Install system dependencies needed by Playwright
+# The list below is from the official Playwright docs,
+# plus a few extra libraries often needed for headless Chrome
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    wget \
+    gnupg \
+    ca-certificates \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libgbm1 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libpango-1.0-0 \
+    libcurl4 \
+    xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Switch to /app as working directory
+WORKDIR /app
+
+# Copy in your Python requirements
+COPY requirements.txt ./
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir -r requirements.txt
+
+# Install Chromium + Playwright
+RUN pip install --no-cache-dir playwright
+RUN playwright install chromium --with-deps
+
+# Copy the rest of your application code into the container
+COPY . .
+
+# (Optional) Create a non-root user and switch to it
+# (This is often a best practice, but not strictly required.)
+RUN useradd -m myuser
+USER myuser
+
+# Expose the port your Flask app will run on
+EXPOSE 8000
+
+# Gunicorn command for Flask
+CMD ["gunicorn", "app:create_app()", "-b", "0.0.0.0:8000"]
