@@ -3,7 +3,7 @@ services:
     name: flask-app
     region: frankfurt
     runtime: python
-    buildCommand: "pip install -r requirements.txt && pip install playwright && playwright install chromium" 
+    buildCommand: "pip install -r requirements.txt && python -m playwright install chromium" 
     startCommand: "gunicorn 'app:create_app()'"
     envVars:
       - key: SECRET_KEY
@@ -28,7 +28,7 @@ services:
     name: celery-worker
     region: frankfurt
     runtime: python
-    buildCommand: "pip install -r requirements.txt && pip install psycopg2-binary && pip install playwright && playwright install chromium"
+    buildCommand: "pip install -r requirements.txt && pip install psycopg2-binary && python -m playwright install chromium"
     startCommand: "celery -A celery_worker worker --loglevel=info --concurrency 1 --max-memory-per-child=400000"
     autoDeploy: false
     envVars:
