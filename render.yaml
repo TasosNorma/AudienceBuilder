@@ -2,8 +2,9 @@ services:
   - type: web
     name: flask-app
     region: frankfurt
-    runtime: docker
-    dockerfilePath: Dockerfile.flask
+    runtime: python
+    buildCommand: "pip install -r requirements.txt && python -m playwright install chromium" 
+    startCommand: "gunicorn 'app:create_app()'"
     envVars:
       - key: SECRET_KEY
         sync: false
@@ -26,27 +27,16 @@ services:
   - type: worker
     name: celery-worker
     region: frankfurt
-    runtime: docker
-    dockerfilePath: Dockerfile.flask
-    dockerCommand: celery -A app.celery worker --loglevel=info
+    runtime: python
+    buildCommand: "pip install -r requirements.txt && pip install psycopg2-binary && python -m playwright install chromium --with-deps"
+    startCommand: "celery -A celery_worker worker --loglevel=info --concurrency 1 --max-memory-per-child=400000"
+    autoDeploy: false
     envVars:
-      - key: SECRET_KEY
-        sync: false
-      - key: ENCRYPTION_KEY
-        sync: false
-      - key: DATABASE_URL
-        sync: false
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_KEY
-        sync: false
-      - key: OPENAI_API_KEY
-        sync: false
       - key: CELERY_BROKER_URL
         fromService:
           name: celery-redis
           type: redis
-          property: connectionString    
+          property: connectionString     
   
   - type: web
     name: flower
