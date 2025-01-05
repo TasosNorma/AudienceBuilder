@@ -1,4 +1,4 @@
-aiohttp==3.11.7
+aiohttp==3.10.11
 Flask==3.1.0
 Flask-Login==0.6.3
 Flask-WTF==1.2.2
