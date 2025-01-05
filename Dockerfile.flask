@@ -1,28 +1,18 @@
-FROM python:3.10-slim
+# Use the official Playwright image for Python
+FROM mcr.microsoft.com/playwright/python:v1.39.0-focal
 
 WORKDIR /app
 
-# Install system dependencies and create a non-root user
-RUN apt-get update && apt-get install -y \
-    wget \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd -m -u 1000 appuser
-
-# Copy requirements first for better caching
+# Copy and install Python deps
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright as non-root user
-USER appuser
-RUN python -m playwright install chromium --with-deps
+# Copy in all code
+COPY . .
 
-# Copy the application code
-COPY --chown=appuser:appuser . .
-
-# Expose the port
+# Expose port 8000 for your Flask app
 EXPOSE 8000
 
-# Command will be overridden by render.yaml
+# By default, we will run gunicorn (the web service),
+# but you can override in Render with "dockerCommand"
 CMD ["gunicorn", "app:create_app()", "-b", "0.0.0.0:8000"]
