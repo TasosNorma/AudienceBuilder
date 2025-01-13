@@ -2,7 +2,7 @@ import os
 from celery import Celery
 from kombu import Queue, Exchange
 
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')
 CELERY_RESULT_BACKEND = 'db+' + os.getenv('DATABASE_URL')
 
 celery_app = Celery(

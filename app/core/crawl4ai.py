@@ -15,39 +15,56 @@ class UrlSchema(BaseModel):
 
 # This function takes a url and tries to re-create the article of the URL as realistically as possible.
 async def extract_article_content(url,api_key):
-    async with AsyncWebCrawler(verbose=False, log_level=logging.ERROR, silent=True) as crawler:
-        print("Trying to extract the content from the article")
-        result = await crawler.arun(
-            url=url,
-            word_count_threshold=5,
-            extraction_strategy=LLMExtractionStrategy(
-                provider='openai/gpt-4o-mini',
-                api_token=api_key,
-                instruction=""" 
-You are an expert at reading raw webpage markup and reconstructing the original article text. You will be given the complete HTML markup of a webpage that contains an article. Your task is to produce the clean article text in a well-structured, hierarchical format, reflecting the original headings and subheadings as closely as possible.
-# Instructions:
-* Article Content Only: Reproduce only the main article text. Omit any content not integral to the article (e.g., ads, navigation menus, related posts, social media links, comments).
-* No Additional Commentary: Do not include your own explanations or remarks. Present only what the original author wrote.
-* Don't Repeat Yourself: Do not repeat yourself, if you've said something once, do not say it again at the end of the article
-* Clean and Hierarchical Structure:
-* Use a clear hierarchy for titles and headings (e.g., # for the main title, ## for subheadings, etc.)
-* Maintain paragraph structure and any lists the author included.
-* Do not restate content unnecessarily. If something appears once, do not repeat it unless it was repeated in the original text.
-* No Non-textual Elements: Exclude images, URLs, and references that are not essential for understanding the article's core message.
-Your final output should be a neatly organized version of the article's textual content, suitable for further processing or summarization.
-                """
-            ),
-            bypass_cache=True,
-            silent=True
-        )
-    content_blocks = json.loads(result.extracted_content)
-    formatted_article = []
-    for block in content_blocks:
-        if 'content' in block:
-            formatted_article.extend(block['content'])
-    
-    article = "\n\n".join(formatted_article)
-    return article
+    try:
+        async with AsyncWebCrawler(verbose=False, log_level=logging.ERROR, silent=True) as crawler:
+            print("Trying to extract the content from the article")
+            try:
+                result = await crawler.arun(
+                    url=url,
+                    word_count_threshold=5,
+                    extraction_strategy=LLMExtractionStrategy(
+                        provider='openai/gpt-4o-mini',
+                        api_token=api_key,
+                        instruction=""" 
+        You are an expert at reading raw webpage markup and reconstructing the original article text. You will be given the complete HTML markup of a webpage that contains an article. Your task is to produce the clean article text in a well-structured, hierarchical format, reflecting the original headings and subheadings as closely as possible.
+        # Instructions:
+        * Article Content Only: Reproduce only the main article text. Omit any content not integral to the article (e.g., ads, navigation menus, related posts, social media links, comments).
+        * No Additional Commentary: Do not include your own explanations or remarks. Present only what the original author wrote.
+        * Don't Repeat Yourself: Do not repeat yourself, if you've said something once, do not say it again at the end of the article
+        * Clean and Hierarchical Structure:
+        * Use a clear hierarchy for titles and headings (e.g., # for the main title, ## for subheadings, etc.)
+        * Maintain paragraph structure and any lists the author included.
+        * Do not restate content unnecessarily. If something appears once, do not repeat it unless it was repeated in the original text.
+        * No Non-textual Elements: Exclude images, URLs, and references that are not essential for understanding the article's core message.
+        Your final output should be a neatly organized version of the article's textual content, suitable for further processing or summarization.
+                        """
+                    ),
+                    bypass_cache=True,
+                    silent=True
+                )
+                if not result or not result.extracted_content:
+                    print(f"Error: No content could be extracted from {url}")
+            except Exception as e:
+                print(f"Error during content extraction: {str(e)}")
+                return f"Error: Failed to extract content from {url}. Reason: {str(e)}"
+            
+        try:
+            if not isinstance(result.extracted_content, (str, bytes, bytearray)):
+                print(f"Error: Invalid content type received from crawler: {type(result.extracted_content)}")
+            content_blocks = json.loads(result.extracted_content)
+            formatted_article = []
+            for block in content_blocks:
+                if 'content' in block:
+                    formatted_article.extend(block['content'])
+            
+            article = "\n\n".join(formatted_article)
+            return article
+        except Exception as e:
+            print(f"Error formatting article content: {str(e)}")
+            return f"Error: Failed to format extracted content. Reason: {str(e)}"
+    except Exception as e:
+        print(f"Unexpected error processing article: {str(e)}")
+        return f"Error: Unexpected error while processing {url}"
 
 # This function takes a url and returns all the relevant urls referenced in the article of this URL
 async def extract_relevant_urls(url,api_key):

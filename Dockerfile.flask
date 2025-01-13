@@ -1,0 +1,27 @@
+# Use Python 3.11 slim image as base
+FROM --platform=linux/amd64 python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the application
+COPY . .
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PORT=10000
+
+# Expose the port the app runs on
+EXPOSE 10000
+
+# Ensure we use root user at runtime
+USER root
+
+# Command to run the application using gunicorn
+CMD gunicorn 'app:create_app()' --bind 0.0.0.0:$PORT --workers 2 --timeout 600

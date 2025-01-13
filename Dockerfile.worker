@@ -1,0 +1,21 @@
+# Use Python 3.11 slim image as base
+FROM mcr.microsoft.com/playwright/python:v1.49.0-jammy
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements file
+COPY requirements.txt ./
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+
+# Copy the application code
+COPY . .
+
+# Ensure we use root user at runtime
+USER root
+
+# Command to run Celery worker
+CMD ["celery", "-A", "celery_worker", "worker", "--loglevel=info", "--concurrency=1", "--max-memory-per-child=400000"]

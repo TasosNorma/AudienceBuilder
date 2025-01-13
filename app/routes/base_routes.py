@@ -1,17 +1,17 @@
-from flask import Flask, render_template, Blueprint, redirect, flash, url_for, request
+from flask import Flask, render_template, Blueprint, redirect, flash, url_for, request, jsonify, json
 from flask_login import login_required, current_user
 import os
 from ..core.forms import UrlSubmit, PromptForm, SetupProfileForm,SettingsForm
 from ..core.content_processor import ContentProcessor,SyncContentProcessor, SyncAsyncContentProcessor
 from ..database.database import SessionLocal
 from ..database.models import Prompt, Profile, User, ProcessingResult
-import asyncio
 import logging
 from cryptography.fernet import Fernet
 from ..api.prompt_operations import get_prompt
 from asgiref.sync import async_to_sync
 from celery_worker.tasks import process_url_task
 from datetime import datetime,timezone
+
 
 
 bp = Blueprint('base', __name__)
@@ -36,6 +36,19 @@ def base():
     result = None
     db = SessionLocal()
 
+    try:
+        processing_history = db.query(ProcessingResult)\
+            .filter(ProcessingResult.user_id == current_user.id)\
+            .order_by(ProcessingResult.created_at_utc.desc())\
+            .limit(10)\
+            .all()
+    except Exception as e:
+        logging.error(f"Error fetching processing history: {str(e)}")
+        processing_history = []
+    finally:
+        db.close()
+
+    db = SessionLocal()
     if form.validate_on_submit():
         try:
             # Create pending record immediately
@@ -49,7 +62,7 @@ def base():
             db.commit()
             # Start the task and add the ID to the database
             task = process_url_task.delay(form.url.data, current_user.id, processing_result.id)
-            processing_result.task_id= task.id
+            processing_result.task_id = task.id
             db.commit()
             result = {
                 "status": "processing",
@@ -57,6 +70,7 @@ def base():
                 "task_id": task.id,
                 "result_id": processing_result.id
             }
+            
         except Exception as e:
             result = {
                 "status": "error",
@@ -64,7 +78,32 @@ def base():
             }
         finally:
             db.close()
-    return render_template('index.html', form=form, result=result)
+    return render_template('index.html', form=form, result=result, processing_history=processing_history)
+
+@bp.route('/update_processing_history', methods=['GET'])
+@login_required
+def update_processing_history():
+    db = SessionLocal()
+    try:
+        processing_history = db.query(ProcessingResult)\
+            .filter(ProcessingResult.user_id == current_user.id)\
+            .order_by(ProcessingResult.created_at_utc.desc())\
+            .limit(10)\
+            .all()
+        
+        history_data = [{
+            'id': item.id,
+            'url': item.url,
+            'status': item.status,
+            'tweets': item.tweets
+        } for item in processing_history]
+        
+        return jsonify({'history': history_data})
+    except Exception as e:
+        logging.error(f"Error fetching processing history: {str(e)}")
+        return jsonify({'history': []})
+    finally:
+        db.close()
 
 @bp.route('/prompts', methods =['GET','POST'])
 @login_required
@@ -161,3 +200,49 @@ def settings():
     
     db.close()
     return render_template('settings.html', form=form)
+
+
+@bp.route('/processing_result/<int:result_id>', methods=['GET'])
+@login_required
+def processing_result(result_id):
+    logging.info(f"Accessing processing_result for ID: {result_id}")
+    db = SessionLocal()
+    try:
+        logging.info(f"Querying database for result_id: {result_id} and user_id: {current_user.id}")
+        result = db.query(ProcessingResult)\
+            .filter(ProcessingResult.id == result_id, ProcessingResult.user_id == current_user.id)\
+            .first()
+        
+        if not result:
+            logging.warning(f"No result found for ID: {result_id}")
+            flash('Processing result not found', 'error')
+            return redirect(url_for('base.base'))
+        
+        logging.info(f"Found result with status: {result.status}")
+        logging.info(f"Raw tweets data type: {type(result.tweets)}")
+        logging.info(f"Raw tweets content: {result.tweets}")
+            
+        tweets = []
+        if result.tweets:
+            try:
+                # First attempt: direct JSON parsing
+                tweets = json.loads(result.tweets)
+                logging.info("Successfully parsed tweets using direct JSON loading")
+            except json.JSONDecodeError:
+                # Second attempt: clean the string and try again
+                logging.info("Direct JSON parsing failed, attempting string cleanup")
+                tweets_str = result.tweets.replace('\\"', '"').strip('"')
+                tweets = json.loads(tweets_str)
+                logging.info("Successfully parsed tweets after string cleanup")
+        logging.info(f"Processed {len(tweets)} tweets") 
+        return render_template('processing_result.html', result=result, tweets=tweets)
+    except json.JSONDecodeError as e:
+        logging.error(f"Error parsing tweets JSON: {str(e)}")
+        flash('Error parsing tweets data', 'error')
+        return redirect(url_for('base.base'))
+    except Exception as e:
+        logging.error(f"Unexpected error: {str(e)}")
+        flash('An unexpected error occurred', 'error')
+        return redirect(url_for('base.base'))
+    finally:
+        db.close()

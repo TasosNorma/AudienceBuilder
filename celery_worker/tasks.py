@@ -12,7 +12,9 @@ def process_url_task(self,url:str,user_id:int,result_id:int):
         try:
             # Call the process url to get the result
             user = db.query(User).get(user_id)
+            print(f"Got user with id f{user.id}")
             processor = SyncAsyncContentProcessor(user)
+            print(f"Successfully Initiated the SyncAsyncContent Processor")
             result = processor.process_url(url)
             # Find the processing result and add all the relevant info
             processing_result = db.query(ProcessingResult).get(result_id)
@@ -27,6 +29,11 @@ def process_url_task(self,url:str,user_id:int,result_id:int):
             processing_result.status = "failed"
             processing_result.error_message = str(e)
             db.commit()
+            return {
+                "status": "Failure of processing task",
+                "task_id": self.request.id,
+                "result_id": processing_result.id
+            }
             raise
         
         return {
