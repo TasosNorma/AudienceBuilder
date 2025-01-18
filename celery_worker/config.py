@@ -1,13 +1,17 @@
 import os
 from celery import Celery
 from kombu import Queue, Exchange
+from dotenv import load_dotenv
 
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')
+# Load environment variables from .env file
+load_dotenv()
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = 'db+' + os.getenv('DATABASE_URL')
+beat_dburi = os.getenv('DATABASE_URL')
 
 celery_app = Celery(
-    'content_processor',     # Name of your application
-    broker=CELERY_BROKER_URL,     # URL for the message broker (Redis/RabbitMQ)
+    'content_processor',     # Name of application
+    broker=CELERY_BROKER_URL,     # URL for the message broker (Redis)
     backend=CELERY_RESULT_BACKEND,  # Where to store task results (Supabase)
     include=['celery_worker.tasks']  # Python modules to import when workers start
 )
@@ -29,6 +33,7 @@ celery_app.conf.update(
     # Route tasks to specific queues
     task_routes={
         'celery_worker.tasks.process_url_task': {'queue': 'content_processing'},
+        'celery_worker.tasks.process_url_task_no_processing_id': {'queue': 'content_processing'},
     },
     
     # Task execution settings
@@ -37,4 +42,8 @@ celery_app.conf.update(
     
     # Result settings
     result_expires=86400,  # Results expire in 24 hours
+
+    # Beat scheduler settings
+    beat_dburi= beat_dburi,  
+    beat_scheduler='sqlalchemy_celery_beat.schedulers:DatabaseScheduler',
 )

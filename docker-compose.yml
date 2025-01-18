@@ -38,6 +38,25 @@ services:
     networks:
       - app-network
 
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    command: celery -A celery_worker beat --loglevel=info 
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - celery-worker
+    networks:
+      - app-network
+
   flower:
     build:
       context: .

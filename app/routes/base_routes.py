@@ -11,6 +11,9 @@ from ..api.prompt_operations import get_prompt
 from asgiref.sync import async_to_sync
 from celery_worker.tasks import process_url_task
 from datetime import datetime,timezone
+from celery_worker.config import beat_dburi
+from sqlalchemy_celery_beat.models import PeriodicTask, IntervalSchedule, CrontabSchedule, Period
+from sqlalchemy_celery_beat.session import SessionManager
 
 
 
@@ -200,6 +203,51 @@ def settings():
     
     db.close()
     return render_template('settings.html', form=form)
+
+@bp.route('/schedule', methods=['GET','POST'])
+@login_required
+def schedule():
+    form = UrlSubmit()
+    result = None
+    if form.validate_on_submit():
+        try:
+            session_manager = SessionManager()
+            session = session_manager.session_factory(beat_dburi)
+            interval_schedule = IntervalSchedule(
+            every=2,
+            period=Period.MINUTES
+            )
+            session.add(interval_schedule)
+            session.commit()
+            # Generate unique name using timestamp
+            task_name = f'process_url_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+
+            interval_task = PeriodicTask(
+            schedule_model=interval_schedule,
+            name=task_name,
+            task='celery_worker.tasks.process_url_task_no_processing_id', 
+            args=json.dumps([form.url.data, current_user.id]),
+            kwargs=json.dumps({}),
+            description='Test in production of url processing task'
+            )
+            session.add(interval_task)
+            session.commit()
+            logging.info(f"Successfully created scheduled task '{interval_task.name}' with interval {interval_schedule.every} {interval_schedule.period}")
+            result = {
+                "status": "success",
+                "message": f"Successfully scheduled task to process URL every {interval_schedule.every} {interval_schedule.period}"
+            }
+        except Exception as e:
+            logging.error(f"Error creating scheduled task: {str(e)}")
+            result = {
+                "status": "error", 
+                "message": f"Failed to schedule task: {str(e)}"
+            }
+        finally:
+            session.close()
+    return render_template('schedule.html', form=form, result=result)
+
+
 
 
 @bp.route('/processing_result/<int:result_id>', methods=['GET'])
