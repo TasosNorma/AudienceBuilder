@@ -69,3 +69,24 @@ class ProcessingResult(Base):
     created_at_utc = Column(DateTime, default=datetime.now(timezone.utc))
 
     user = relationship('User', backref='processing_results')
+
+
+class Schedule(Base):
+    __tablename__ = 'schedules'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    name = Column(String(255), nullable=False)
+    url = Column(String(2048), nullable=False)
+    minutes = Column(Integer, nullable=False)
+    interval_schedule_id = Column(Integer, nullable=False)
+    periodic_task_id = Column(Integer, nullable=False)
+    last_run_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), 
+                       default=lambda: datetime.now(timezone.utc),
+                       onupdate=lambda: datetime.now(timezone.utc))
+    is_active = Column(Boolean, default=True)
+
+    # Relationships
+    user = relationship('User', backref='schedules')

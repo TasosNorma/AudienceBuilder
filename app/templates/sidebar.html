@@ -18,6 +18,12 @@
                     Prompt
                 </a>
             </li>
+            <li class="nav-item">
+                <a href="{{url_for('base.schedule')}}" class="nav-link {% if request.endpoint == 'base.schedule' %} active {% endif %}">
+                    <i class="bi bi-clock me-2"></i>
+                    Schedule
+                </a>
+            </li>
             <li class="nav-item"></li>
                 <a href="{{url_for('base.settings')}}" class="nav-link {% if request.endpoint == 'base.settings' %} active {% endif %}">
                     <i class="bi bi-table me-2"></i>

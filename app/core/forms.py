@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, TextAreaField, PasswordField
-from wtforms.validators import DataRequired, URL, Length, Email, EqualTo
+from wtforms import StringField, SubmitField, TextAreaField, PasswordField, IntegerField
+from wtforms.validators import DataRequired, URL, Length, Email, EqualTo, NumberRange
 
 class UrlSubmit(FlaskForm):
     url = StringField('Url',validators=[DataRequired(),URL()])
@@ -42,3 +42,10 @@ class RegistrationForm(FlaskForm):
 class SettingsForm(FlaskForm):
     openai_api_key = StringField('OpenAI API Key', validators=[DataRequired()])
     submit = SubmitField('Update Settings')
+
+class ScheduleForm(FlaskForm):
+    url = StringField('URL', validators=[DataRequired(), URL()])
+    minutes = IntegerField('Minutes between runs', 
+                          validators=[DataRequired(), NumberRange(min=1, max=1440)],  # max 24 hours
+                          default=2)
+    submit = SubmitField('Schedule Task')

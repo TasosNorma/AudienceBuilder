@@ -1,10 +1,10 @@
 from flask import Flask, render_template, Blueprint, redirect, flash, url_for, request, jsonify, json
 from flask_login import login_required, current_user
 import os
-from ..core.forms import UrlSubmit, PromptForm, SetupProfileForm,SettingsForm
+from ..core.forms import UrlSubmit, PromptForm, SetupProfileForm,SettingsForm, ScheduleForm
 from ..core.content_processor import ContentProcessor,SyncContentProcessor, SyncAsyncContentProcessor
 from ..database.database import SessionLocal
-from ..database.models import Prompt, Profile, User, ProcessingResult
+from ..database.models import Prompt, Profile, User, ProcessingResult,Schedule
 import logging
 from cryptography.fernet import Fernet
 from ..api.prompt_operations import get_prompt
@@ -14,6 +14,8 @@ from datetime import datetime,timezone
 from celery_worker.config import beat_dburi
 from sqlalchemy_celery_beat.models import PeriodicTask, IntervalSchedule, CrontabSchedule, Period
 from sqlalchemy_celery_beat.session import SessionManager
+from ..api.general import Scheduler
+from flask_wtf.csrf import generate_csrf
 
 
 
@@ -207,45 +209,49 @@ def settings():
 @bp.route('/schedule', methods=['GET','POST'])
 @login_required
 def schedule():
-    form = UrlSubmit()
+    form = ScheduleForm()
     result = None
-    if form.validate_on_submit():
-        try:
-            session_manager = SessionManager()
-            session = session_manager.session_factory(beat_dburi)
-            interval_schedule = IntervalSchedule(
-            every=2,
-            period=Period.MINUTES
+    db = SessionLocal()
+    
+    try:
+        # Add logging to track execution
+        logging.info("Fetching schedules for user_id: %s", current_user.id)
+        
+        # Get user's schedules
+        schedules = db.query(Schedule)\
+            .filter(Schedule.user_id == current_user.id)\
+            .order_by(Schedule.created_at.desc())\
+            .all()
+        
+        csrf_token = generate_csrf()
+        
+        logging.info("Found %d schedules and generated csrf", len(schedules))
+            
+        if form.validate_on_submit():
+            result = Scheduler.create_schedule(
+                url=form.url.data,
+                user_id=current_user.id,
+                minutes=form.minutes.data
             )
-            session.add(interval_schedule)
-            session.commit()
-            # Generate unique name using timestamp
-            task_name = f'process_url_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-
-            interval_task = PeriodicTask(
-            schedule_model=interval_schedule,
-            name=task_name,
-            task='celery_worker.tasks.process_url_task_no_processing_id', 
-            args=json.dumps([form.url.data, current_user.id]),
-            kwargs=json.dumps({}),
-            description='Test in production of url processing task'
-            )
-            session.add(interval_task)
-            session.commit()
-            logging.info(f"Successfully created scheduled task '{interval_task.name}' with interval {interval_schedule.every} {interval_schedule.period}")
-            result = {
-                "status": "success",
-                "message": f"Successfully scheduled task to process URL every {interval_schedule.every} {interval_schedule.period}"
-            }
-        except Exception as e:
-            logging.error(f"Error creating scheduled task: {str(e)}")
-            result = {
-                "status": "error", 
-                "message": f"Failed to schedule task: {str(e)}"
-            }
-        finally:
-            session.close()
-    return render_template('schedule.html', form=form, result=result)
+            if result["status"] == "success":
+                return redirect(url_for('base.schedule'))
+                
+        return render_template('schedule.html', 
+                             form=form, 
+                             result=result, 
+                             schedules=schedules,
+                             csrf_token=csrf_token)
+    except Exception as e:
+        # Add detailed error logging
+        logging.error("Error in schedule route: %s", str(e), exc_info=True)
+        # Return a user-friendly error page instead of 500
+        flash('An error occurred while loading schedules', 'error')
+        return render_template('schedule.html', 
+                             form=form, 
+                             result={"status": "error", "message": "Failed to load schedules"}, 
+                             schedules=[])
+    finally:
+        db.close()
 
 
 
@@ -292,5 +298,30 @@ def processing_result(result_id):
         logging.error(f"Unexpected error: {str(e)}")
         flash('An unexpected error occurred', 'error')
         return redirect(url_for('base.base'))
+    finally:
+        db.close()
+
+
+@bp.route('/disable_schedule/<int:schedule_id>', methods=['POST'])
+@login_required
+def disable_schedule(schedule_id):
+    db = SessionLocal()
+    try:
+        # Verify the schedule belongs to the current user
+        schedule = db.query(Schedule).filter_by(id=schedule_id, user_id=current_user.id).first()
+        if not schedule:
+            return jsonify({
+                "status": "error",
+                "message": "Schedule not found or access denied"
+            })
+
+        result = Scheduler.disable_schedule(schedule_id)
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Error disabling schedule: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": f"An error occurred: {str(e)}"
+        })
     finally:
         db.close()

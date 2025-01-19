@@ -4,7 +4,10 @@ import os
 import logging
 import warnings
 from urllib3.exceptions import NotOpenSSLWarning
+from flask_wtf.csrf import CSRFProtect
 warnings.filterwarnings('ignore', category=NotOpenSSLWarning)
+
+csrf = CSRFProtect()
 
 def create_app():
     app = Flask(__name__)
@@ -31,6 +34,7 @@ def create_app():
     app.register_blueprint(base_bp)
     app.register_blueprint(auth_bp)
     app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY")
+    csrf.init_app(app)
 
     # Disable Flask development server logging
     app.logger.disabled = True

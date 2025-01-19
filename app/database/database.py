@@ -20,7 +20,7 @@ Base = declarative_base()
 
 def init_db():
     # Import models here to ensure they are known to SQLAlchemy
-    from .models import Prompt, User, Profile, ProcessingResult
+    from .models import Prompt, User, Profile, ProcessingResult, Schedule
     Base.metadata.create_all(bind=engine)
 
 def get_db():

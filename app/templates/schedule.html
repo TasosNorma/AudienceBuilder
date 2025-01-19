@@ -39,12 +39,28 @@
                 
                 <div class="card form-card p-4 mb-4">
                     <form method="POST" id="urlForm">
-                        {{form.csrf_token}}
+                        {{ form.csrf_token }}
                         <div class="mb-3">
-                            {{form.url(class_="form-control", placeholder="Enter article URL to process periodically")}}
+                            <label for="{{ form.url.id }}" class="form-label">URL to Process</label>
+                            {{ form.url(class_="form-control", placeholder="Enter article URL to process periodically") }}
+                            {% if form.url.errors %}
+                                {% for error in form.url.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="{{ form.minutes.id }}" class="form-label">Processing Interval (minutes)</label>
+                            {{ form.minutes(class_="form-control", type="number", min="1", max="1440") }}
+                            <small class="text-muted">Enter a value between 1 and 1440 minutes (24 hours)</small>
+                            {% if form.minutes.errors %}
+                                {% for error in form.minutes.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
                         </div>
                         <div class="d-grid">
-                            {{form.submit(class_="btn btn-primary btn-lg", value="Schedule Processing")}}
+                            {{ form.submit(class_="btn btn-primary btn-lg submit-btn") }}
                         </div>
                         <div class="loading-spinner">
                             <div class="spinner-border text-primary" role="status">
@@ -60,6 +76,45 @@
                     {{ result.message }}
                 </div>
                 {% endif %}
+                {% if schedules %}
+                <div class="card form-card p-4 mt-4">
+                    <h3>Your Scheduled Tasks</h3>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>URL</th>
+                                    <th>Interval</th>
+                                    <th>Last Run</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for schedule in schedules %}
+                                <tr>
+                                    <td>{{ schedule.name }}</td>
+                                    <td>{{ schedule.url }}</td>
+                                    <td>Every {{ schedule.minutes }} minutes</td>
+                                    <td>{{ schedule.last_run_at|default('Never', true) }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if schedule.is_active else 'secondary' }}">
+                                            {{ 'Active' if schedule.is_active else 'Inactive' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-warning disable-schedule" data-schedule-id="{{ schedule.id }}">
+                                            <i class="bi bi-pause-fill"></i> Disable
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -68,6 +123,32 @@
         document.getElementById('urlForm').addEventListener('submit', function(e) {
             this.classList.add('loading');
         });
+    </script>
+    <script>
+    document.querySelectorAll('.disable-schedule').forEach(button => {
+        button.addEventListener('click', async function() {
+            const scheduleId = this.getAttribute('data-schedule-id');
+            if (confirm('Are you sure you want to disable this schedule?')) {
+                try {
+                    const response = await fetch(`/disable_schedule/${scheduleId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        }
+                    });
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        window.location.reload();
+                    } else {
+                        alert(result.message);
+                    }
+                } catch (error) {
+                    alert('An error occurred while disabling the schedule');
+                }
+            }
+        });
+    });
     </script>
 </body>
 </html>
