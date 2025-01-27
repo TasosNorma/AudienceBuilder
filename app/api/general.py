@@ -1,11 +1,12 @@
 from ..database.database import SessionLocal
-from ..database.models import Schedule
+from ..database.models import Schedule, Profile,ProfileComparison,User,Blog
 from celery_worker.config import beat_dburi
 from sqlalchemy_celery_beat.models import PeriodicTask, IntervalSchedule, Period
 from sqlalchemy_celery_beat.session import SessionManager
 import logging
 from datetime import datetime
 import json
+from celery_worker.tasks import compare_profile_task,blog_analyse_task,blog_analyse_task_filter_out_past
 
 class Scheduler:
     @classmethod
@@ -30,6 +31,78 @@ class Scheduler:
                 name=task_name,
                 task='celery_worker.tasks.process_url_task_no_processing_id',
                 args=json.dumps([url, user_id]),
+                kwargs=json.dumps({}),
+                description='Scheduled URL processing task'
+            )
+            beat_session.add(interval_task)
+            beat_session.flush()  # Flush to get the ID
+
+            # Create user schedule record
+            schedule = Schedule(
+                user_id=user_id,
+                name=task_name,
+                url=url,
+                minutes=minutes,
+                interval_schedule_id=interval_schedule.id,
+                periodic_task_id=interval_task.id
+            )
+            app_db.add(schedule)
+            
+            # Commit both sessions
+            beat_session.commit()
+            app_db.commit()
+
+            logging.info(f"Successfully created scheduled task '{interval_task.name}' with interval {interval_schedule.every} {interval_schedule.period}")
+            
+            return {
+                "status": "success",
+                "message": f"Successfully scheduled task to process URL every {interval_schedule.every} {interval_schedule.period}"
+            }
+            
+        except Exception as e:
+            beat_session.rollback()
+            app_db.rollback()
+            logging.error(f"Error creating scheduled task: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to schedule task: {str(e)}"
+            }
+        finally:
+            beat_session.close()
+            app_db.close()
+
+    @classmethod
+    def create_blog_schedule(cls, url: str, user_id: int,minutes: int) -> dict:
+        app_db = SessionLocal()
+        try:
+            #Create the record
+            blog_session = Blog(
+                url=url,
+                user_id=user_id,
+                status="pending", 
+                created_at=datetime.utcnow()
+            )
+            app_db.add(blog_session)
+            app_db.commit()
+            app_db.refresh(blog_session)
+            # Create celery schedule
+            session_manager = SessionManager()
+            beat_session = session_manager.session_factory(beat_dburi)
+            
+            interval_schedule = IntervalSchedule(
+                every=minutes,
+                period=Period.MINUTES
+            )
+            beat_session.add(interval_schedule)
+            beat_session.flush()  # Flush to get the ID
+
+            task_name = f'process_url_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+            
+            interval_task = PeriodicTask(
+                schedule_model=interval_schedule,
+                name=task_name,
+                task='celery_worker.tasks.blog_analyse_task_filter_out_past',
+                args=json.dumps([blog_session.id, user_id]),
                 kwargs=json.dumps({}),
                 description='Scheduled URL processing task'
             )
@@ -112,4 +185,164 @@ class Scheduler:
         finally:
             beat_session.close()
             app_db.close()
+    
+class Profile_Handler:
+    @classmethod
+    def change_interests_description(cls,user_id:int,new_description: str) -> dict:
+        db = SessionLocal()
+        try:
+            profile = db.query(Profile).filter_by(user_id=user_id).first()
+            if not profile:
+                return {
+                    "status": "error",
+                    "message": "Profile not found"
+                }
+            
+            profile.interests_description = new_description
+            db.commit()
+            logging.info(f"Successfully updated interests description for user {user_id}")
+            return {
+                "status": "success",
+                "message": "Interests description updated successfully"
+            }
+        except Exception as e:
+            db.rollback()
+            logging.error(f"Error updating interests description: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to update interests description: {str(e)}"
+            }
+        finally:
+            db.close()
+
+    @classmethod
+    def create_profile_comparison(cls, user_id: int, url: str) -> dict:
+        db = SessionLocal()
+        try:
+            profile = db.query(Profile).filter_by(user_id=user_id).first()
+            if not profile:
+                return {
+                "status": "error",
+                "message": "User profile not found"
+                }
+            # Create profile comparison record
+            profile_comparison = ProfileComparison(
+                user_id=user_id,
+                url=url,
+                status="pending",
+                created_at=datetime.utcnow(),
+                profile_interests=profile.interests_description 
+            )
+            db.add(profile_comparison)
+            db.commit()
+            db.refresh(profile_comparison)
+
+            # Invoke celery task
+            compare_profile_task.delay(profile_comparison.id, user_id)
+            logging.info(f"Successfully created profile comparison with ID {profile_comparison.id} for user {user_id}")
+
+            return {
+                "status": "success",
+                "message": "Profile comparison initiated",
+                "comparison_id": profile_comparison.id
+            }
+        except Exception as e:
+            db.rollback()
+            logging.error(f"Error creating profile comparison: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to create profile comparison: {str(e)}"
+            }
+        finally:
+            db.close()
+    
+    @classmethod
+    def get_user_comparisons(cls, user_id: int) -> dict:
+        db = SessionLocal()
+        try:
+            comparisons = db.query(ProfileComparison).filter_by(user_id=user_id).order_by(ProfileComparison.created_at.desc()).all()
+            return {
+                "status": "success",
+                "comparisons": comparisons
+            }
+        except Exception as e:
+            logging.error(f"Error fetching user comparisons: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to fetch comparisons: {str(e)}"
+            }
+        finally:
+            db.close()
+
+    @classmethod
+    def get_comparison_details(cls, comparison_id: int, user_id: int) -> dict:
+        db = SessionLocal()
+        try:
+            comparison = (
+                db.query(ProfileComparison)
+                .filter_by(id=comparison_id, user_id=user_id)
+                .first()
+            )
+            
+            if not comparison:
+                return {
+                    "status": "error",
+                    "message": "Comparison not found or access denied"
+                }
+                
+            return {
+                "status": "success",
+                "comparison": {
+                    "id": comparison.id,
+                    "url": comparison.url,
+                    "status": comparison.status,
+                    "created_at": comparison.created_at,
+                    "comparison_result": comparison.comparison_result,
+                    "short_summary": comparison.short_summary,
+                    "profile_interests": comparison.profile_interests
+                }
+            }
+        except Exception as e:
+            logging.error(f"Error fetching comparison details: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to fetch comparison details: {str(e)}"
+            }
+        finally:
+            db.close()
+
+class Blog_Handler():
+    @classmethod
+    def create_blog_handling_session(cls,user_id:int, url:str) -> dict:
+        db = SessionLocal()
+        try:
+            #create the record
+            blog_session = Blog(
+                url=url,
+                user_id=user_id,
+                status="pending", 
+                created_at=datetime.utcnow()
+            )
+            db.add(blog_session)
+            db.commit()
+            db.refresh(blog_session)
+
+            #invoke the task
+            blog_analyse_task_filter_out_past.delay(user_id = user_id , blog_id = blog_session.id)
+            logging.info(f"Successfuly completed the analyse task with id {blog_session.id}")
+            return {
+                    "status": "success",
+                    "message": "Blog analysis completed",
+                    "comparison_id": blog_session.id
+                }
+        except Exception as e:
+            db.rollback()
+            logging.error(f"Error creating blog analysis session: {str(e)}")
+            return {
+                "status": "error", 
+                "message": f"Failed to create blog analysis: {str(e)}"
+            }
+        finally:
+            db.close()
+    
     

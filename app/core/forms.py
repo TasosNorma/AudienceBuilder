@@ -49,3 +49,7 @@ class ScheduleForm(FlaskForm):
                           validators=[DataRequired(), NumberRange(min=1, max=1440)],  # max 24 hours
                           default=2)
     submit = SubmitField('Schedule Task')
+
+class ProfileForm(FlaskForm):
+    interests_description = TextAreaField('Interests Description', validators=[DataRequired()])
+    submit = SubmitField('Update Profile')

@@ -1,10 +1,10 @@
 from flask import Flask, render_template, Blueprint, redirect, flash, url_for, request, jsonify, json
 from flask_login import login_required, current_user
 import os
-from ..core.forms import UrlSubmit, PromptForm, SetupProfileForm,SettingsForm, ScheduleForm
-from ..core.content_processor import ContentProcessor,SyncContentProcessor, SyncAsyncContentProcessor
+from ..core.forms import UrlSubmit, PromptForm, SetupProfileForm,SettingsForm, ScheduleForm,ProfileForm, ArticleCompareForm
+from ..core.content_processor import SyncAsyncContentProcessor
 from ..database.database import SessionLocal
-from ..database.models import Prompt, Profile, User, ProcessingResult,Schedule
+from ..database.models import Prompt, Profile, User, ProcessingResult,Schedule, Blog, BlogProfileComparison
 import logging
 from cryptography.fernet import Fernet
 from ..api.prompt_operations import get_prompt
@@ -14,7 +14,7 @@ from datetime import datetime,timezone
 from celery_worker.config import beat_dburi
 from sqlalchemy_celery_beat.models import PeriodicTask, IntervalSchedule, CrontabSchedule, Period
 from sqlalchemy_celery_beat.session import SessionManager
-from ..api.general import Scheduler
+from ..api.general import Scheduler, Profile_Handler, Blog_Handler
 from flask_wtf.csrf import generate_csrf
 
 
@@ -33,6 +33,15 @@ def check_onboarding():
                 return redirect(url_for('base.onboarding'))
         finally:
             db.close()
+
+@bp.route('/')
+def index():
+    try:
+        # Your route logic here
+        return redirect(url_for('base.base'))
+    except Exception as e:
+        logging.error(f"Error in index route: {str(e)}", exc_info=True)
+        return f"An error occurred: {str(e)}", 500
 
 @bp.route('/home',methods=['GET','POST'])
 @login_required
@@ -228,7 +237,7 @@ def schedule():
         logging.info("Found %d schedules and generated csrf", len(schedules))
             
         if form.validate_on_submit():
-            result = Scheduler.create_schedule(
+            result = Scheduler.create_blog_schedule(
                 url=form.url.data,
                 user_id=current_user.id,
                 minutes=form.minutes.data
@@ -253,8 +262,71 @@ def schedule():
     finally:
         db.close()
 
+@bp.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    db = SessionLocal()
+    form = ProfileForm()
+    try:
+        profile = db.query(Profile).filter_by(user_id=current_user.id).first()
 
+        if form.validate_on_submit():
+            try:
+                result = Profile_Handler.change_interests_description(
+                    user_id=current_user.id,
+                    new_description=form.interests_description.data
+                )
+                logging.info(f"Successfully updated profile interests for user {current_user.id}")
+            except Exception as e:
+                logging.error(f"Failed to update profile interests: {str(e)}")
+                result = {"status": "error", "message": "Failed to update profile"}
+        elif request.method == 'GET':
+            form.interests_description.data = profile.interests_description
 
+        return render_template('profile.html', form=form, profile=profile)
+    except Exception as e:
+        logging.error(f"Error in profile route: {str(e)}", exc_info=True)
+        return redirect(url_for('base.base'))
+    finally:
+        db.close()
+
+@bp.route('/profile_compare', methods=['GET', 'POST'])
+@login_required
+def profile_compare():
+    form = ArticleCompareForm()
+    result = None
+
+    if form.validate_on_submit():
+        result = Profile_Handler.create_profile_comparison(
+            user_id=current_user.id,
+            url=form.article_url.data
+        )
+        if result["status"] == "success":
+            flash('Profile comparison initiated successfully', 'success')
+            return redirect(url_for('base.profile_compare'))
+        else:
+            flash(result["message"], 'error')
+    
+    # Get existing comparisons
+    comparisons_result = Profile_Handler.get_user_comparisons(current_user.id)
+    comparisons = comparisons_result.get("comparisons", [])
+
+    return render_template(
+        'profile_comparisons.html',
+        form=form,
+        result=result,
+        comparisons=comparisons
+    )
+
+@bp.route('/profile_comparison/<int:comparison_id>')
+@login_required
+def profile_comparison_detail(comparison_id):
+    result = Profile_Handler.get_comparison_details(comparison_id, current_user.id)
+    comparison = result["comparison"]
+    return render_template(
+        'profile_comparison_detail.html',
+        comparison = comparison
+    )
 
 @bp.route('/processing_result/<int:result_id>', methods=['GET'])
 @login_required
@@ -301,7 +373,6 @@ def processing_result(result_id):
     finally:
         db.close()
 
-
 @bp.route('/disable_schedule/<int:schedule_id>', methods=['POST'])
 @login_required
 def disable_schedule(schedule_id):
@@ -323,5 +394,86 @@ def disable_schedule(schedule_id):
             "status": "error",
             "message": f"An error occurred: {str(e)}"
         })
+    finally:
+        db.close()
+
+@bp.route('/blog/<int:blog_id>')
+@login_required
+def blog_detail(blog_id):
+    db = SessionLocal()
+    try:
+        # Get blog and its comparisons
+        blog = db.query(Blog)\
+            .filter_by(id=blog_id, user_id=current_user.id)\
+            .first()
+        
+        if not blog:
+            flash('Blog not found or access denied', 'error')
+            return redirect(url_for('base.blog_analysis'))
+        
+        comparisons = db.query(BlogProfileComparison)\
+            .filter_by(blog_id=blog_id)\
+            .order_by(BlogProfileComparison.created_at.desc())\
+            .all()
+        
+        return render_template('blog_details.html', blog=blog, comparisons=comparisons)
+    except Exception as e:
+        logging.error(f"Error in blog detail route: {str(e)}")
+        flash('An error occurred while processing your request', 'error')
+        return redirect(url_for('base.blog_analysis'))
+    finally:
+        db.close()
+
+@bp.route('/blog_comparison/<int:comparison_id>')
+@login_required
+def blog_comparison_detail(comparison_id):
+    db = SessionLocal()
+    try:
+        comparison = db.query(BlogProfileComparison)\
+            .filter_by(id=comparison_id, user_id=current_user.id)\
+            .first()
+        
+        if not comparison:
+            flash('Comparison not found or access denied', 'error')
+            return redirect(url_for('base.blog_analysis'))
+        
+        return render_template('blog_comparison_detail.html', comparison=comparison)
+    except Exception as e:
+        logging.error(f"Error in blog comparison detail route: {str(e)}")
+        flash('An error occurred while processing your request', 'error')
+        return redirect(url_for('base.blog_analysis'))
+    finally:
+        db.close()
+
+
+@bp.route('/blog_analysis', methods=['GET', 'POST'])
+@login_required
+def blog_analysis():
+    form = UrlSubmit() 
+    db = SessionLocal()
+    
+    try:
+        # Get user's blogs
+        blogs = db.query(Blog)\
+            .filter(Blog.user_id == current_user.id)\
+            .order_by(Blog.created_at.desc())\
+            .all()
+        
+        if form.validate_on_submit():
+            result = Blog_Handler.create_blog_handling_session(
+                user_id=current_user.id,
+                url=form.url.data
+            )
+            if result["status"] == "success":
+                flash('Blog analysis initiated successfully', 'success')
+                return redirect(url_for('base.blog_analysis'))
+            else:
+                flash(result["message"], 'error')
+        
+        return render_template('blog_analysis.html', form=form, blogs=blogs)
+    except Exception as e:
+        logging.error(f"Error in blog analysis route: {str(e)}")
+        flash('An error occurred while processing your request', 'error')
+        return redirect(url_for('base.base'))
     finally:
         db.close()

@@ -68,9 +68,6 @@ class ProcessingResult(Base):
     task_id = Column(String(50), nullable=True)
     created_at_utc = Column(DateTime, default=datetime.now(timezone.utc))
 
-    user = relationship('User', backref='processing_results')
-
-
 class Schedule(Base):
     __tablename__ = 'schedules'
 
@@ -88,5 +85,39 @@ class Schedule(Base):
                        onupdate=lambda: datetime.now(timezone.utc))
     is_active = Column(Boolean, default=True)
 
-    # Relationships
-    user = relationship('User', backref='schedules')
+class ProfileComparison(Base):
+    __tablename__ = 'profile_comparisons'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    profile_interests = Column(Text, nullable=False)  
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    url = Column(String(2048), nullable=False)
+    short_summary = Column(Text, nullable=True)
+    comparison_result = Column(Text, nullable=True)  
+    status = Column(String(50), default='pending', nullable=False)  # pending, completed, failed
+
+class Blog(Base):
+    __tablename__ = 'blogs'
+
+    id = Column(Integer, primary_key=True)
+    url = Column(String(2048), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    status = Column(String(50), default='pending', nullable=False)  # pending, processing, completed, failed
+    number_of_articles = Column(Integer, default=0)
+    error_message = Column(Text, nullable=True)
+    number_of_fitting_articles = Column(Integer, default=0)
+
+class BlogProfileComparison(Base):
+    __tablename__ = 'blog_profile_comparisons'
+
+    id = Column(Integer, primary_key=True)
+    url = Column(String(2048), nullable=False)
+    blog_id = Column(Integer, ForeignKey('blogs.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    short_summary = Column(Text, nullable=True)
+    profile_interests = Column(Text, nullable=True)
+    comparison_result = Column(Text, nullable=True)  # Will store the detailed comparison results
+    status = Column(String(50), default='pending', nullable=False)  # pending, completed, failed
