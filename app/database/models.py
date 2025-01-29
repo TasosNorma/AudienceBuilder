@@ -43,6 +43,7 @@ class User(Base,UserMixin):
     email = Column(String(120), unique=True, nullable=False)
     password_hash = Column(String(1024), nullable=False)
     is_active = Column(Boolean, default=True)
+    phone_number = Column(String(20), nullable=True)
     openai_api_key = Column(String(1024), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     profile = relationship('Profile',back_populates='user', uselist=False)

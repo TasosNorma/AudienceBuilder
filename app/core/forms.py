@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, TextAreaField, PasswordField, IntegerField
-from wtforms.validators import DataRequired, URL, Length, Email, EqualTo, NumberRange
+from wtforms.validators import DataRequired, URL, Length, Email, EqualTo, NumberRange , Optional, Regexp
 
 class UrlSubmit(FlaskForm):
     url = StringField('Url',validators=[DataRequired(),URL()])
@@ -41,6 +41,10 @@ class RegistrationForm(FlaskForm):
 
 class SettingsForm(FlaskForm):
     openai_api_key = StringField('OpenAI API Key', validators=[DataRequired()])
+    phone_number = StringField('Phone Number', validators=[
+        Optional(),
+        Regexp(r'^\+[1-9]\d{1,14}$', message='Phone number must start with + and country code')
+    ])
     submit = SubmitField('Update Settings')
 
 class ScheduleForm(FlaskForm):

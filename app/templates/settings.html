@@ -46,7 +46,11 @@
                             {{ form.openai_api_key(class_="form-control", type="password") }}
                             <div class="form-text">Update your OpenAI API key</div>
                         </div>
-
+                        <div class="mb-4">
+                            {{ form.phone_number.label(class_="form-label fw-bold") }}
+                            {{ form.phone_number(class_="form-control") }}
+                            <div class="form-text">Enter phone number with country code (e.g., +1234567890)</div>
+                        </div>
                         <div class="d-grid gap-2">
                             {{ form.submit(class_="btn btn-primary btn-lg") }}
                         </div>

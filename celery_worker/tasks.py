@@ -1,5 +1,6 @@
 from celery_worker.config import celery_app
 from app.core.content_processor import SyncAsyncContentProcessor
+from app.core.whatsapp import WhatsappHandler
 from app.database.database import SessionLocal
 from app.database.models import User, ProcessingResult, ProfileComparison, Profile, Blog, BlogProfileComparison
 from datetime import datetime, timezone
@@ -490,6 +491,13 @@ def blog_analyse_task_filter_out_past(self, blog_id: int, user_id: int):
         blog.status = "completed"
         blog.number_of_fitting_articles = fitting_articles
         db.commit()
+
+        try:
+            if blog.status == "completed":
+                whatsapp = WhatsappHandler()
+                whatsapp.notify_relevant_articles(user_id,blog_id)
+        except Exception as e:
+            logging.error(f"Failed to send WhatsApp notifications: {str(e)}")
 
         return {
             "status": "success",

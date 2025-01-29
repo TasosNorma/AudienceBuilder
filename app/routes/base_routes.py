@@ -201,16 +201,21 @@ def settings():
         try:
             user = db.query(User).get(current_user.id)
             user.openai_api_key = fernet.encrypt(form.openai_api_key.data.encode())
+
+            phone = form.phone_number.data.strip()
+            user.phone_number = phone
             db.commit()
             flash('Settings updated successfully', 'success')
             return redirect(url_for('base.settings'))
         except Exception as e:
             db.rollback()
+            logging.error(f'Error updating settings: {str(e)}')
             flash(f'Error updating settings: {str(e)}', 'error')
         finally:
             db.close()
     elif request.method == 'GET':
         form.openai_api_key.data = '********************************************************************'
+        form.phone_number.data = current_user.phone_number
     
     db.close()
     return render_template('settings.html', form=form)
