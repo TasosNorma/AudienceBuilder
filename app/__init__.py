@@ -4,16 +4,15 @@ import os
 import logging
 import warnings
 from urllib3.exceptions import NotOpenSSLWarning
-from flask_wtf.csrf import CSRFProtect
+from app.extensions import csrf
 warnings.filterwarnings('ignore', category=NotOpenSSLWarning)
-
-csrf = CSRFProtect()
 
 def create_app():
     app = Flask(__name__)
 
     from app.routes.base_routes import bp as base_bp
     from app.routes.auth_routes import auth_bp as auth_bp
+    from app.routes.webhook_routes import webhook_bp
     # Create the manager
     login_manager = LoginManager()
     # Connect it to our Flask app
@@ -34,6 +33,7 @@ def create_app():
     logging.basicConfig(level=logging.DEBUG)
     app.register_blueprint(base_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(webhook_bp)
     app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY")
     csrf.init_app(app)
 

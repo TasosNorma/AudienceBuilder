@@ -12,9 +12,7 @@ from asgiref.sync import async_to_sync
 from celery_worker.tasks import process_url_task
 from datetime import datetime,timezone
 from celery_worker.config import beat_dburi
-from sqlalchemy_celery_beat.models import PeriodicTask, IntervalSchedule, CrontabSchedule, Period
-from sqlalchemy_celery_beat.session import SessionManager
-from ..api.general import Scheduler, Profile_Handler, Blog_Handler
+from ..api.general import Scheduler, Profile_Handler, Blog_Handler, Blog_Profile_Comparison_Handler
 from flask_wtf.csrf import generate_csrf
 
 
@@ -450,7 +448,6 @@ def blog_comparison_detail(comparison_id):
     finally:
         db.close()
 
-
 @bp.route('/blog_analysis', methods=['GET', 'POST'])
 @login_required
 def blog_analysis():
@@ -482,3 +479,25 @@ def blog_analysis():
         return redirect(url_for('base.base'))
     finally:
         db.close()
+
+@bp.route('/relevant_blog_comparison_list')
+@login_required
+def blog_comparison_list():
+    # All possible statuses for the filter form
+    all_statuses = ["Ignored Article", "Drafted Post", "Posted", "Ignored Draft", "not_processed"]
+    # Get selected statuses from query parameters, default to all relevant statuses if none selected
+    selected_statuses = request.args.getlist('statuses') or all_statuses
+    
+    result = Blog_Profile_Comparison_Handler.get_user_comparisons_by_whatsapp_status(
+        user_id=current_user.id,
+        whatsapp_statuses=selected_statuses
+    )
+    
+    comparisons = result.get("comparisons", [])
+    
+    return render_template(
+        'relevant_blog_comparison_list.html', 
+        comparisons=comparisons,
+        all_statuses=all_statuses,
+        selected_statuses=selected_statuses
+    )

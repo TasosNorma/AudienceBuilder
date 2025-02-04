@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Blog Comparison List</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg,#f5f7fa 0%, #c3cfe2 50% );
+            min-height: 100vh;
+        }
+        .comparison-card {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    {% include 'sidebar.html' %}
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="text-center py-5">
+                    <h1 class="display-4 fw-bold">Relevant Comparison Results</h1>
+                    <p class="lead text-muted">View your processed article comparisons with a relevant whatsapp_status</p>
+                </div>
+                            <!-- Add Filter Form -->
+                <div class="card mb-4 comparison-card">
+                    <div class="card-body">
+                        <form method="get" class="mb-3">
+                            <div class="mb-3">
+                                <label class="form-label">Filter by Status:</label>
+                                <div class="d-flex flex-wrap gap-2">
+                                    {% for status in all_statuses %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                            name="statuses" value="{{ status }}" 
+                                            id="status_{{ loop.index }}"
+                                            {% if status in selected_statuses %}checked{% endif %}>
+                                        <label class="form-check-label" for="status_{{ loop.index }}">
+                                            {{ status }}
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Apply Filters</button>
+                            <a href="{{ url_for('base.blog_comparison_list') }}" class="btn btn-secondary">Clear Filters</a>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="card comparison-card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>URL</th>
+                                        <th>Created At</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for comparison in comparisons %}
+                                    <tr>
+                                        <td>{{ comparison.id }}</td>
+                                        <td class="text-truncate" style="max-width: 200px;">
+                                            <a href="{{ comparison.url }}" target="_blank" title="{{ comparison.url }}">
+                                                {{ comparison.url }}
+                                            </a>
+                                        </td>
+                                        <td>{{ comparison.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                        <td>
+                                            <span class="badge {% if comparison.whatsapp_status == 'Posted' %}bg-success
+                                                             {% elif comparison.whatsapp_status == 'Drafted Post' %}bg-info
+                                                             {% elif comparison.whatsapp_status == 'Ignored Article' %}bg-warning
+                                                             {% else %}bg-secondary{% endif %}">
+                                                {{ comparison.whatsapp_status }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group">
+                                                <a href="{{ url_for('base.blog_comparison_detail', comparison_id=comparison.id) }}" 
+                                                   class="btn btn-sm btn-outline-primary">
+                                                    <i class="bi bi-eye"></i> Comparison
+                                                </a>
+                                                {% if comparison.processing_result_id %}
+                                                <a href="{{ url_for('base.processing_result', result_id=comparison.processing_result_id) }}" 
+                                                   class="btn btn-sm btn-outline-secondary">
+                                                    <i class="bi bi-file-text"></i> Result
+                                                </a>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -68,6 +68,10 @@ class ProcessingResult(Base):
     error_message = Column(Text, nullable=True)
     task_id = Column(String(50), nullable=True)
     created_at_utc = Column(DateTime, default=datetime.now(timezone.utc))
+    whatsapp_triggered = Column(Boolean, default=False)
+    message_sid = Column(String(50),nullable=True)
+    posted = Column(Boolean, default=False)
+    blog_comparison_id = Column(Integer, ForeignKey('blog_profile_comparisons.id'),nullable=True)
 
 class Schedule(Base):
     __tablename__ = 'schedules'
@@ -122,3 +126,6 @@ class BlogProfileComparison(Base):
     profile_interests = Column(Text, nullable=True)
     comparison_result = Column(Text, nullable=True)  # Will store the detailed comparison results
     status = Column(String(50), default='pending', nullable=False)  # pending, completed, failed
+    whatsapp_status = Column(String(50), nullable=True,default='not_processed') # not_processed,ignored, processing, posted
+    message_sid = Column(String(50),nullable=True)
+    processing_result_id = Column(Integer, ForeignKey('processing_results.id'),nullable=True)

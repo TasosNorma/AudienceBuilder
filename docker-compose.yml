@@ -80,6 +80,16 @@ services:
       - redis-data:/data
     networks:
       - app-network
+  
+  ngrok:
+    image: ngrok/ngrok:latest
+    ports:
+      - "4040:4040"
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    command: http flask-app:10000
+    networks:
+      - app-network
 
 networks:
   app-network:

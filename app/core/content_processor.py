@@ -4,7 +4,7 @@ from typing import Dict, Optional
 from app.database.database import *
 from app.database.models import Profile
 from langchain.prompts import PromptTemplate
-from .crawl4ai import *
+from .crawl4ai import ArticleCrawler
 import asyncio
 import logging
 from app.api.prompt_operations import get_prompt
@@ -56,7 +56,7 @@ class SyncAsyncContentProcessor:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
-                    self.article = loop.run_until_complete(extract_article_content(url,self.decripted_api_key))
+                    self.article = loop.run_until_complete(self.crawler.extract_article_content(url))
                 except Exception as e:
                     print(f"Error getting the article content with async operation.{str(e)}")
             except Exception as e:

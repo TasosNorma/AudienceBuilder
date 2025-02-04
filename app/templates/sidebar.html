@@ -33,7 +33,13 @@
             <li class="nav-item">
                 <a href="{{url_for('base.profile_compare')}}" class="nav-link {% if request.endpoint == 'base.profile_compare' %} active {% endif %}">
                     <i class="bi bi-people me-2"></i>
-                    Compare Profile
+                    Compare to Profile
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{url_for('base.blog_comparison_list')}}" class="nav-link {% if request.endpoint == 'base.blog_comparison_list' %} active {% endif %}">
+                    <i class="bi bi-people me-2"></i>
+                    Relevant Blog Comparisons
                 </a>
             </li>
             <li class="nav-item">

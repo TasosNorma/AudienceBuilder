@@ -1,6 +1,5 @@
 from celery_worker.config import celery_app
 from app.core.content_processor import SyncAsyncContentProcessor
-from app.core.whatsapp import WhatsappHandler
 from app.database.database import SessionLocal
 from app.database.models import User, ProcessingResult, ProfileComparison, Profile, Blog, BlogProfileComparison
 from datetime import datetime, timezone
@@ -518,7 +517,63 @@ def blog_analyse_task_filter_out_past(self, blog_id: int, user_id: int):
         db.close()
 
 
+# Is called when user pressed "Draft", it creates a new processing result and calls the send_draft to show it to the user.
+@celery_app.task(bind=True)
+def process_url_for_whatsapp(self,comparison_id:int):
+    from app.core.whatsapp import WhatsappHandler
+    db = SessionLocal()
+    try:
+        logging.info(f"Starting process_url_for_whatsapp task for comparison_id: {comparison_id}")
+        comparison = db.query(BlogProfileComparison).get(comparison_id)
+        user_id = comparison.user_id
+        url = comparison.url
+        message_sid = comparison.message_sid
+        logging.info(f"Retrieved comparison data - user_id: {user_id}, url: {url}")
 
+        user = db.query(User).get(user_id)
+        processor = SyncAsyncContentProcessor(user)
+        logging.info(f"Processing URL content for comparison {comparison_id}")
+        result = processor.process_url(url)
+        
+        logging.info(f"Creating ProcessingResult for comparison {comparison_id}")
+        processing_result = ProcessingResult(
+            user_id=user_id,
+            url=url,
+            status="success", 
+            tweets=json.dumps(result.get("tweets", [])),
+            tweet_count=result.get("tweet_count", 0),
+            message_sid=message_sid,
+            whatsapp_triggered=True,
+            task_id=self.request.id,
+            created_at_utc=datetime.now(timezone.utc),
+            original_blog_comparison = comparison_id
+        )
+        db.add(processing_result)
+        db.commit()
+        logging.info(f"Created ProcessingResult with id: {processing_result.id}")
+
+        comparison.processing_result_id = processing_result.id
+        db.commit()
+        logging.info(f"Updated comparison {comparison_id} with processing_result_id")
+
+        if processing_result:
+            logging.info(f"Sending draft via WhatsApp for processing_result: {processing_result.id}")
+            whatsapp = WhatsappHandler()
+            whatsapp.send_draft(processing_result.id)
+
+        return {
+            "status": "success",
+            "result_id": processing_result.id,
+            "task_id": self.request.id
+        }
+    except Exception as e:
+        logging.error(f"Error processing comparison {comparison_id} for WhatsApp: {str(e)}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+    finally:
+        db.close()
 
 
 

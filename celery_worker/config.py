@@ -36,7 +36,8 @@ celery_app.conf.update(
         'celery_worker.tasks.process_url_task_no_processing_id': {'queue': 'content_processing'},
         'celery_worker.tasks.compare_profile_task':{'queue':'content_processing'},
         'celery_worker.tasks.blog_analyse_task': {'queue': 'content_processing'},
-        'celery_worker.tasks.blog_analyse_task_filter_out_past': {'queue': 'content_processing'}
+        'celery_worker.tasks.blog_analyse_task_filter_out_past': {'queue': 'content_processing'},
+        'celery_worker.tasks.process_url_for_whatsapp': {'queue': 'content_processing'}
     },
     
     # Task execution settings

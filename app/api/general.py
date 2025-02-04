@@ -1,5 +1,5 @@
 from ..database.database import SessionLocal
-from ..database.models import Schedule, Profile,ProfileComparison,User,Blog
+from ..database.models import Schedule, Profile,ProfileComparison,User,Blog,BlogProfileComparison
 from celery_worker.config import beat_dburi
 from sqlalchemy_celery_beat.models import PeriodicTask, IntervalSchedule, Period
 from sqlalchemy_celery_beat.session import SessionManager
@@ -310,6 +310,7 @@ class Profile_Handler:
             }
         finally:
             db.close()
+    
 
 class Blog_Handler():
     @classmethod
@@ -346,3 +347,30 @@ class Blog_Handler():
             db.close()
     
     
+class Blog_Profile_Comparison_Handler:
+    # Takes a list of whatsap_statuses and return comparisons order by created_at
+    @classmethod
+    def get_user_comparisons_by_whatsapp_status(cls, user_id: int, whatsapp_statuses: list[str]) -> dict:
+        db = SessionLocal()
+        try:
+            comparisons = (
+                db.query(BlogProfileComparison)
+                .filter(
+                    BlogProfileComparison.user_id == user_id,
+                    BlogProfileComparison.whatsapp_status.in_(whatsapp_statuses)
+                )
+                .order_by(BlogProfileComparison.created_at.desc())
+                .all()
+            )
+            return {
+                "status": "success",
+                "comparisons": comparisons
+            }
+        except Exception as e:
+            logging.error(f"Error fetching user comparisons by WhatsApp status: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to fetch comparisons: {str(e)}"
+            }
+        finally:
+            db.close()
