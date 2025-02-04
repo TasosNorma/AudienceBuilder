@@ -15,6 +15,7 @@ services:
       - SUPABASE_KEY=${SUPABASE_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:
       - redis
     networks:
@@ -33,6 +34,7 @@ services:
       - SUPABASE_KEY=${SUPABASE_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:
       - redis
     networks:
@@ -51,6 +53,7 @@ services:
       - SUPABASE_KEY=${SUPABASE_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:
       - redis
       - celery-worker
@@ -66,6 +69,7 @@ services:
       - "5555:5555"
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:
       - redis
       - celery-worker
@@ -82,6 +86,10 @@ services:
       - app-network
     hostname: redis
     container_name: redis
+    healthcheck: #Will not start other containers if this fails
+      test: ["CMD", "redis-cli", "ping"] 
+      interval: 5s  
+      retries: 5 
   
   ngrok:
     image: ngrok/ngrok:latest
