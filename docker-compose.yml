@@ -86,9 +86,7 @@ services:
       - app-network
     hostname: redis
     container_name: redis
-    command: redis-server --appendonly yes --save "" --stop-writes-on-bgsave-error no
-    sysctls:
-      - vm.overcommit_memory=1 # Allocates more memory to redis when necessary to reduce chance of failure.
+    command: redis-server --appendonly yes --save "" --stop-writes-on-bgsave-error no # Changes the way we store backups in the disk to have less chance of corruption.
     healthcheck: # Will not start other containers if this fails
       test: ["CMD", "redis-cli", "ping"] 
       interval: 5s  
@@ -110,4 +108,4 @@ networks:
 
 volumes:
   redis-data:
-    driver: local
+    driver: local #With this, the redis data survives when machine stops and restarts or docker down and up again.
