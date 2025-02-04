@@ -80,6 +80,8 @@ services:
       - redis-data:/data
     networks:
       - app-network
+    hostname: redis
+    container_name: redis
   
   ngrok:
     image: ngrok/ngrok:latest

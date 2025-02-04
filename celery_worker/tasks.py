@@ -8,6 +8,7 @@ import asyncio
 import logging
 
 
+
 @celery_app.task(bind=True)
 def process_url_task(self,url:str,user_id:int,result_id:int):
     db = SessionLocal()
