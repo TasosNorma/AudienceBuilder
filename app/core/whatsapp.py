@@ -61,7 +61,7 @@ class WhatsappHandler:
             # Send notification for each relevant article
             for article in relevant_articles:
                 article_data = {
-                    'summary': article.short_summary[:200] + "...",
+                    'summary': article.short_summary[:100] + "...",
                     'url': article.url
                 }
                 article.whatsapp_status = "Notified User"

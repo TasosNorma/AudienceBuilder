@@ -548,7 +548,7 @@ def process_url_for_whatsapp(self,comparison_id:int):
             whatsapp_triggered=True,
             task_id=self.request.id,
             created_at_utc=datetime.now(timezone.utc),
-            original_blog_comparison = comparison_id
+            blog_comparison_id = comparison_id
         )
         db.add(processing_result)
         db.commit()
