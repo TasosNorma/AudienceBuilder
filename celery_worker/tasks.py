@@ -494,6 +494,7 @@ def blog_analyse_task_filter_out_past(self, blog_id: int, user_id: int):
 
         try:
             if blog.status == "completed":
+                from app.core.whatsapp import WhatsappHandler
                 whatsapp = WhatsappHandler()
                 whatsapp.notify_relevant_articles(user_id,blog_id)
         except Exception as e:
