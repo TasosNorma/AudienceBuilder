@@ -55,7 +55,7 @@ class ResponseHandler:
                     return False
                 processing_result.posted = True
                 comparison = db.query(BlogProfileComparison).filter(
-                    BlogProfileComparison.id == processing_result.original_blog_comparison
+                    BlogProfileComparison.id == processing_result.blog_comparison_id
                 ).first()
                 comparison.whatsapp_status="Posted"
                 db.commit()
@@ -71,7 +71,7 @@ class ResponseHandler:
                     return False
                 processing_result.posted = False
                 comparison = db.query(BlogProfileComparison).filter(
-                    BlogProfileComparison.id == processing_result.original_blog_comparison
+                    BlogProfileComparison.id == processing_result.blog_comparison_id
                 ).first()
                 comparison.whatsapp_status="Ignored Draft"
                 db.commit()
