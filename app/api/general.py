@@ -6,85 +6,14 @@ from sqlalchemy_celery_beat.session import SessionManager
 import logging
 from datetime import datetime
 import json
-from celery_worker.tasks import compare_profile_task,blog_analyse_task,blog_analyse_task_filter_out_past
+from celery_worker.tasks import compare_profile_task,blog_analyse
 
 class Scheduler:
-    @classmethod
-    def create_schedule(cls, url: str, user_id: int,minutes: int) -> dict:
-        app_db = SessionLocal()
-        try:
-            # Create celery schedule
-            session_manager = SessionManager()
-            beat_session = session_manager.session_factory(beat_dburi)
-            
-            interval_schedule = IntervalSchedule(
-                every=minutes,
-                period=Period.MINUTES
-            )
-            beat_session.add(interval_schedule)
-            beat_session.flush()  # Flush to get the ID
-
-            task_name = f'process_url_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-            
-            interval_task = PeriodicTask(
-                schedule_model=interval_schedule,
-                name=task_name,
-                task='celery_worker.tasks.process_url_task_no_processing_id',
-                args=json.dumps([url, user_id]),
-                kwargs=json.dumps({}),
-                description='Scheduled URL processing task'
-            )
-            beat_session.add(interval_task)
-            beat_session.flush()  # Flush to get the ID
-
-            # Create user schedule record
-            schedule = Schedule(
-                user_id=user_id,
-                name=task_name,
-                url=url,
-                minutes=minutes,
-                interval_schedule_id=interval_schedule.id,
-                periodic_task_id=interval_task.id
-            )
-            app_db.add(schedule)
-            
-            # Commit both sessions
-            beat_session.commit()
-            app_db.commit()
-
-            logging.info(f"Successfully created scheduled task '{interval_task.name}' with interval {interval_schedule.every} {interval_schedule.period}")
-            
-            return {
-                "status": "success",
-                "message": f"Successfully scheduled task to process URL every {interval_schedule.every} {interval_schedule.period}"
-            }
-            
-        except Exception as e:
-            beat_session.rollback()
-            app_db.rollback()
-            logging.error(f"Error creating scheduled task: {str(e)}")
-            return {
-                "status": "error",
-                "message": f"Failed to schedule task: {str(e)}"
-            }
-        finally:
-            beat_session.close()
-            app_db.close()
-
+        
     @classmethod
     def create_blog_schedule(cls, url: str, user_id: int,minutes: int) -> dict:
         app_db = SessionLocal()
         try:
-            #Create the record
-            blog_session = Blog(
-                url=url,
-                user_id=user_id,
-                status="pending", 
-                created_at=datetime.utcnow()
-            )
-            app_db.add(blog_session)
-            app_db.commit()
-            app_db.refresh(blog_session)
             # Create celery schedule
             session_manager = SessionManager()
             beat_session = session_manager.session_factory(beat_dburi)
@@ -96,13 +25,13 @@ class Scheduler:
             beat_session.add(interval_schedule)
             beat_session.flush()  # Flush to get the ID
 
-            task_name = f'process_url_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+            task_name = f'Blog_Analysis{datetime.now().strftime("%Y%m%d_%H%M%S")}'
             
             interval_task = PeriodicTask(
                 schedule_model=interval_schedule,
                 name=task_name,
-                task='celery_worker.tasks.blog_analyse_task_filter_out_past',
-                args=json.dumps([blog_session.id, user_id]),
+                task='celery_worker.tasks.blog_analyse',
+                args=json.dumps([url, user_id]),
                 kwargs=json.dumps({}),
                 description='Scheduled URL processing task'
             )
@@ -312,39 +241,22 @@ class Profile_Handler:
             db.close()
     
 
-class Blog_Handler():
+class Blog_Analysis_Handler():
     @classmethod
-    def create_blog_handling_session(cls,user_id:int, url:str) -> dict:
-        db = SessionLocal()
+    def create_blog_analyse_session(cls,user_id:int, url:str) -> dict:
         try:
-            #create the record
-            blog_session = Blog(
-                url=url,
-                user_id=user_id,
-                status="pending", 
-                created_at=datetime.utcnow()
-            )
-            db.add(blog_session)
-            db.commit()
-            db.refresh(blog_session)
-
-            #invoke the task
-            blog_analyse_task_filter_out_past.delay(user_id = user_id , blog_id = blog_session.id)
-            logging.info(f"Successfuly completed the analyse task with id {blog_session.id}")
+            blog_analyse.delay(user_id = user_id , url = url)
+            logging.info(f"Blog Analysis was initiated")
             return {
                     "status": "success",
-                    "message": "Blog analysis completed",
-                    "comparison_id": blog_session.id
+                    "message": "Blog analysis inititated",
                 }
         except Exception as e:
-            db.rollback()
-            logging.error(f"Error creating blog analysis session: {str(e)}")
+            logging.error(f"Error creating blog analysis: {str(e)}")
             return {
                 "status": "error", 
                 "message": f"Failed to create blog analysis: {str(e)}"
             }
-        finally:
-            db.close()
     
     
 class Blog_Profile_Comparison_Handler:

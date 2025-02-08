@@ -27,60 +27,103 @@ class ResponseHandler:
         try:
             
             if response == "ignore":
-                comparison = db.query(BlogProfileComparison).filter(
-                BlogProfileComparison.message_sid == original_message_sid
-                ).first()
-                comparison.whatsapp_status = "Ignored Article"
-                db.commit()
-                logging.info(f"Marked comparison {comparison.id} as ignored")
-                return True
+                try:
+                    comparison = db.query(BlogProfileComparison).filter(
+                    BlogProfileComparison.message_sid == original_message_sid
+                    ).first()
+                    comparison.whatsapp_status = "Ignored Article"
+                    db.commit()
+                    logging.info(f"Marked comparison {comparison.id} as ignored")
+                    return True
+                except Exception as e:
+                    comparison = db.query(BlogProfileComparison).filter(
+                    BlogProfileComparison.message_sid == original_message_sid
+                    ).first()
+                    comparison.whatsapp_status = "Failed"
+                    comparison.error_message = f"Error occured receiving the ignore response : {str(e)}"
+                    logging.error(f"Error occured receiving the ignore response : {str(e)}")
+                    db.commit()
+                    return False
             
             elif response == "draft":
-                comparison = db.query(BlogProfileComparison).filter(
-                BlogProfileComparison.message_sid == original_message_sid
-                ).first()
-                comparison.whatsapp_status = "Drafted Post"
-                # Import here to avoid circular import
-                from celery_worker.tasks import process_url_for_whatsapp
-                task = process_url_for_whatsapp.delay(comparison.id)
-                logging.info(f"Queued process_url_for_whatsapp task for comparison {comparison.id} the task is {task.id}")
-                return True
+                try:
+                    comparison = db.query(BlogProfileComparison).filter(
+                    BlogProfileComparison.message_sid == original_message_sid
+                    ).first()
+                    comparison.whatsapp_status = "Drafted Post"
+                    # Import here to avoid circular import
+                    from celery_worker.tasks import process_url_for_whatsapp
+                    task = process_url_for_whatsapp.delay(comparison.id)
+                    logging.info(f"Queued process_url_for_whatsapp task for comparison {comparison.id} the task is {task.id}")
+                    db.commit()
+                    return True
+                except Exception as e:
+                    comparison = db.query(BlogProfileComparison).filter(
+                    BlogProfileComparison.message_sid == original_message_sid
+                    ).first()
+                    comparison.whatsapp_status = "Failed"
+                    comparison.error_message = f"Error occurred while processing draft response: {str(e)}"
+                    logging.error(f"Error occurred while processing draft response: {str(e)}")
+                    db.commit()
+                    return False
             
             elif response == "post":
-                processing_result = db.query(ProcessingResult).filter(
-                    ProcessingResult.message_sid == original_message_sid
-                ).first()
-                if processing_result is None:
-                    logging.error(f"No processing result found for message_sid: {original_message_sid}")
+                try:
+                    processing_result = db.query(ProcessingResult).filter(
+                        ProcessingResult.message_sid == original_message_sid
+                    ).first()
+                    if processing_result is None:
+                        raise ValueError(f"No processing result found for message_sid: {original_message_sid}")
+                    processing_result.posted = True
+                    comparison = db.query(BlogProfileComparison).filter(
+                        BlogProfileComparison.id == processing_result.blog_comparison_id
+                    ).first()
+                    comparison.whatsapp_status = "Posted"
+                    db.commit()
+                    logging.info(f"Comparison with ID: {comparison.id} has been marked as Whatsapp_Status = Posted")
+                    logging.info(f"Processing result with ID {processing_result.id} has been marked as Posted = True ")
+                    return True
+                except Exception as e:
+                    comparison = db.query(BlogProfileComparison).filter(
+                        BlogProfileComparison.id == processing_result.blog_comparison_id if processing_result else None
+                    ).first()
+                    if comparison:
+                        comparison.whatsapp_status = "Failed"
+                        comparison.error_message = f"Error occurred while processing post response: {str(e)}"
+                        db.commit()
+                    logging.error(f"Error occurred while processing post response: {str(e)}")
                     return False
-                processing_result.posted = True
-                comparison = db.query(BlogProfileComparison).filter(
-                    BlogProfileComparison.id == processing_result.blog_comparison_id
-                ).first()
-                comparison.whatsapp_status="Posted"
-                db.commit()
-                logging.info(f"Processing result will be posted soon, it was marked as posted=True")
-                return True
+
+                
             
             elif response == "ignore draft":
-                processing_result = db.query(ProcessingResult).filter(
-                    ProcessingResult.message_sid == original_message_sid
-                ).first()
-                if processing_result is None:
-                    logging.error(f"No processing result found for message_sid: {original_message_sid}")
+                try:
+                    processing_result = db.query(ProcessingResult).filter(
+                        ProcessingResult.message_sid == original_message_sid
+                    ).first()
+                    if processing_result is None:
+                        raise ValueError(f"No processing result found for message_sid: {original_message_sid}")
+                    processing_result.posted = False
+                    comparison = db.query(BlogProfileComparison).filter(
+                        BlogProfileComparison.id == processing_result.blog_comparison_id
+                    ).first()
+                    comparison.whatsapp_status = "Ignored Draft"
+                    db.commit()
+                    logging.info(f"Processing result was marked as ignored")
+                    return True
+                except Exception as e:
+                    processing_result = db.query(ProcessingResult).filter(
+                        ProcessingResult.message_sid == original_message_sid
+                    ).first()
+                    comparison = db.query(BlogProfileComparison).filter(
+                        BlogProfileComparison.id == processing_result.blog_comparison_id if processing_result else None
+                    ).first()
+                    if comparison:
+                        comparison.whatsapp_status = "Failed"
+                        comparison.error_message = f"Error occurred while processing ignore draft response: {str(e)}"
+                        db.commit()
+                    logging.error(f"Error occurred while processing ignore draft response: {str(e)}")
                     return False
-                processing_result.posted = False
-                comparison = db.query(BlogProfileComparison).filter(
-                    BlogProfileComparison.id == processing_result.blog_comparison_id
-                ).first()
-                comparison.whatsapp_status="Ignored Draft"
-                db.commit()
-                logging.info(f"Processing result was marked as ignored")
-                return True
-            
-            else:
-                logging.warning(f"Unrecognized response: {response}")
-                return False
                 
         except Exception as e:
             logging.error(f"Error handling whatsapp response: {str(e)}")

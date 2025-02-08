@@ -30,3 +30,4 @@ redis==5.2.1
 flower==2.0.1
 sqlalchemy_celery_beat==0.8.0
 twilio == 9.4.4
+emoji == 2.14.1

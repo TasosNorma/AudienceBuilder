@@ -22,28 +22,24 @@ def twilio_webhook():
             original_message_sid = request.form.get('OriginalRepliedMessageSid')
             message_sid = request.form.get('Message_sid')
             response_body = request.form.get('Body')
-            # Call Handler
             responsehandler.handle_response(original_message_sid, response_body.lower().strip(),message_sid=message_sid)
             logging.info(f"handle_repsonse() function initiated")
 
         elif request.form.get('ButtonText') == "Ignore Draft":
             original_message_sid = request.form.get('OriginalRepliedMessageSid')
             response_body = request.form.get('Body')
-            # Call Handler
-            responsehandler.handle_response(original_message_sid, response_body.lower().strip())
             logging.info(f"handle_repsonse() function initiated")
+            responsehandler.handle_response(original_message_sid, response_body.lower().strip())
 
         elif request.form.get('ButtonText') == "Ignore":
             original_message_sid = request.form.get('OriginalRepliedMessageSid')
             response_body = request.form.get('Body')
-            # Call Handler
             responsehandler.handle_response(original_message_sid, response_body.lower().strip())
             logging.info(f"handle_repsonse() function initiated")
 
         elif request.form.get('ButtonText') == "Post":
             original_message_sid = request.form.get('OriginalRepliedMessageSid')
             response_body = request.form.get('Body')
-            # Call Handler
             responsehandler.handle_response(original_message_sid, response_body.lower().strip())
             logging.info(f"handle_repsonse() function initiated")
         

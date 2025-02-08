@@ -129,3 +129,4 @@ class BlogProfileComparison(Base):
     whatsapp_status = Column(String(50), nullable=True,default='not_processed') # not_processed,ignored, processing, posted
     message_sid = Column(String(50),nullable=True)
     processing_result_id = Column(Integer, ForeignKey('processing_results.id'),nullable=True)
+    error_message = Column(Text, nullable=True)

@@ -2,17 +2,14 @@ from flask import Flask, render_template, Blueprint, redirect, flash, url_for, r
 from flask_login import login_required, current_user
 import os
 from ..core.forms import UrlSubmit, PromptForm, SetupProfileForm,SettingsForm, ScheduleForm,ProfileForm, ArticleCompareForm
-from ..core.content_processor import SyncAsyncContentProcessor
 from ..database.database import SessionLocal
 from ..database.models import Prompt, Profile, User, ProcessingResult,Schedule, Blog, BlogProfileComparison
 import logging
 from cryptography.fernet import Fernet
-from ..api.prompt_operations import get_prompt
-from asgiref.sync import async_to_sync
 from celery_worker.tasks import process_url_task
 from datetime import datetime,timezone
 from celery_worker.config import beat_dburi
-from ..api.general import Scheduler, Profile_Handler, Blog_Handler, Blog_Profile_Comparison_Handler
+from ..api.general import Scheduler, Profile_Handler, Blog_Analysis_Handler, Blog_Profile_Comparison_Handler
 from flask_wtf.csrf import generate_csrf
 
 
@@ -169,11 +166,11 @@ def onboarding():
                 user_id = current_user.id,
                 username = current_user.email.split('@')[0],
                 full_name = form.full_name.data,
-                bio = form.bio.data,
                 interests_description = form.interests_description.data
             )
             user = db.query(User).get(current_user.id)
             user.is_onboarded = True
+            user.phone_number = form.phone_number.data
             encrypted_api_key = fernet.encrypt(form.openai_api_key.data.encode())
             user.openai_api_key = encrypted_api_key.decode()
             db.add(profile)
@@ -198,7 +195,7 @@ def settings():
     if form.validate_on_submit():
         try:
             user = db.query(User).get(current_user.id)
-            user.openai_api_key = fernet.encrypt(form.openai_api_key.data.encode())
+            user.openai_api_key = fernet.encrypt(form.openai_api_key.data.encode()).decode()
 
             phone = form.phone_number.data.strip()
             user.phone_number = phone
@@ -462,7 +459,7 @@ def blog_analysis():
             .all()
         
         if form.validate_on_submit():
-            result = Blog_Handler.create_blog_handling_session(
+            result = Blog_Analysis_Handler.create_blog_analyse_session(
                 user_id=current_user.id,
                 url=form.url.data
             )
@@ -482,9 +479,9 @@ def blog_analysis():
 
 @bp.route('/relevant_blog_comparison_list')
 @login_required
-def blog_comparison_list():
+def blog_comparison_list(): 
     # All possible statuses for the filter form
-    all_statuses = ["Ignored Article", "Drafted Post", "Posted", "Ignored Draft", "not_processed"]
+    all_statuses = ["Ignored Article", "Drafted Post", "Posted", "Ignored Draft", "Notified User", "Failed"]
     # Get selected statuses from query parameters, default to all relevant statuses if none selected
     selected_statuses = request.args.getlist('statuses') or all_statuses
     

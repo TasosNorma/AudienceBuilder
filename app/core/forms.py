@@ -13,9 +13,12 @@ class PromptForm(FlaskForm):
 
 class SetupProfileForm(FlaskForm):
     full_name = StringField('Name',validators=[DataRequired()])
-    bio = TextAreaField('Bio',validators=[DataRequired()])
     interests_description = TextAreaField('Interests Description', validators=[DataRequired()])
     openai_api_key = TextAreaField('Open AI API key')
+    phone_number = StringField('Phone Number', validators=[
+        Optional(),
+        Regexp(r'^\+[1-9]\d{1,14}$', message='Phone number must start with + and country code')
+    ])
     submit = SubmitField('Save Changes')
 
 class ArticleCompareForm(FlaskForm):
