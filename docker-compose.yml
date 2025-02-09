@@ -22,7 +22,7 @@ services:
       driver: "awslogs"
       options:
         awslogs-region: "us-east-1"
-        awslogs-group: "flask-app-logs"
+        awslogs-group: "AudienceBuilder-logs"
         awslogs-stream: "flask-app"
     networks:
       - app-network
@@ -47,7 +47,7 @@ services:
       driver: "awslogs"
       options:
         awslogs-region: "us-east-1"
-        awslogs-group: "celery-logs"
+        awslogs-group: "AudienceBuilder-logs"
         awslogs-stream: "celery"
     networks:
       - app-network
@@ -73,7 +73,7 @@ services:
       driver: "awslogs"
       options:
         awslogs-region: "us-east-1"
-        awslogs-group: "beat-scheduler-logs"
+        awslogs-group: "AudienceBuilder-logs"
         awslogs-stream: "beat-scheduler"
     networks:
       - app-network
@@ -97,7 +97,7 @@ services:
       driver: "awslogs"
       options:
         awslogs-region: "us-east-1"
-        awslogs-group: "flower-logs"
+        awslogs-group: "AudienceBuilder-logs"
         awslogs-stream: "flower"
 
   redis:
@@ -114,7 +114,7 @@ services:
       driver: "awslogs"
       options:
         awslogs-region: "us-east-1"
-        awslogs-group: "redis-logs"
+        awslogs-group: "AudienceBuilder-logs"
         awslogs-stream: "redis"
     healthcheck: # Will not start other containers if this fails
       test: ["CMD", "redis-cli", "ping"] 
