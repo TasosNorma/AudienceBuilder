@@ -240,8 +240,7 @@ class Profile_Handler:
         finally:
             db.close()
     
-
-class Blog_Analysis_Handler():
+class Blog_Analysis_Handler:
     @classmethod
     def create_blog_analyse_session(cls,user_id:int, url:str) -> dict:
         try:
@@ -253,11 +252,19 @@ class Blog_Analysis_Handler():
                 }
         except Exception as e:
             logging.error(f"Error creating blog analysis: {str(e)}")
+            with SessionLocal() as db:
+                blog = Blog(
+                    user_id=user_id,
+                    url=url,
+                    status="failed",
+                    error_message=str(e)
+                )
+                db.add(blog)
+                db.commit()
             return {
                 "status": "error", 
                 "message": f"Failed to create blog analysis: {str(e)}"
             }
-    
     
 class Blog_Profile_Comparison_Handler:
     # Takes a list of whatsap_statuses and return comparisons order by created_at

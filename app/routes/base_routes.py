@@ -468,6 +468,7 @@ def blog_analysis():
                 return redirect(url_for('base.blog_analysis'))
             else:
                 flash(result["message"], 'error')
+                return redirect(url_for('base.blog_analysis'))
         
         return render_template('blog_analysis.html', form=form, blogs=blogs)
     except Exception as e:

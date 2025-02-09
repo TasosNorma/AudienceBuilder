@@ -18,6 +18,12 @@ services:
       - CELERY_RESULT_BACKEND=redis://:RDga5zyMvEbhSeA9@redis:6379/0
     depends_on:
       - redis
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-region: "us-east-1"
+        awslogs-group: "flask-app-logs"
+        awslogs-stream: "flask-app"
     networks:
       - app-network
 
@@ -37,6 +43,12 @@ services:
       - CELERY_RESULT_BACKEND=redis://:RDga5zyMvEbhSeA9@redis:6379/0
     depends_on:
       - redis
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-region: "us-east-1"
+        awslogs-group: "celery-logs"
+        awslogs-stream: "celery"
     networks:
       - app-network
 
@@ -57,6 +69,12 @@ services:
     depends_on:
       - redis
       - celery-worker
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-region: "us-east-1"
+        awslogs-group: "beat-scheduler-logs"
+        awslogs-stream: "beat-scheduler"
     networks:
       - app-network
 
@@ -75,6 +93,12 @@ services:
       - celery-worker
     networks:
       - app-network
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-region: "us-east-1"
+        awslogs-group: "flower-logs"
+        awslogs-stream: "flower"
 
   redis:
     image: redis:latest
@@ -86,6 +110,12 @@ services:
     hostname: redis
     container_name: redis
     command: redis-server /usr/local/etc/redis/redis.conf --appendonly yes --save "" --stop-writes-on-bgsave-error no # Changes the way we store backups in the disk to have less chance of corruption.
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-region: "us-east-1"
+        awslogs-group: "redis-logs"
+        awslogs-stream: "redis"
     healthcheck: # Will not start other containers if this fails
       test: ["CMD", "redis-cli", "ping"] 
       interval: 5s  
