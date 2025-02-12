@@ -9,8 +9,9 @@ from cryptography.fernet import Fernet
 from celery_worker.tasks import process_url_task
 from datetime import datetime,timezone
 from celery_worker.config import beat_dburi
-from ..api.general import Scheduler, Profile_Handler, Blog_Analysis_Handler, Blog_Profile_Comparison_Handler
+from ..api.general import Scheduler, Profile_Handler, Blog_Analysis_Handler, Blog_Profile_Comparison_Handler,Processing_Result_Handler
 from flask_wtf.csrf import generate_csrf
+from json import JSONDecodeError 
 
 
 
@@ -32,15 +33,14 @@ def check_onboarding():
 @bp.route('/')
 def index():
     try:
-        # Your route logic here
-        return redirect(url_for('base.base'))
+        return redirect(url_for('base.actions'))
     except Exception as e:
         logging.error(f"Error in index route: {str(e)}", exc_info=True)
         return f"An error occurred: {str(e)}", 500
 
-@bp.route('/home',methods=['GET','POST'])
+@bp.route('/process_url',methods=['GET','POST'])
 @login_required
-def base():
+def process_url():
     form = UrlSubmit()
     result = None
     db = SessionLocal()
@@ -89,31 +89,6 @@ def base():
             db.close()
     return render_template('index.html', form=form, result=result, processing_history=processing_history)
 
-@bp.route('/update_processing_history', methods=['GET'])
-@login_required
-def update_processing_history():
-    db = SessionLocal()
-    try:
-        processing_history = db.query(ProcessingResult)\
-            .filter(ProcessingResult.user_id == current_user.id)\
-            .order_by(ProcessingResult.created_at_utc.desc())\
-            .limit(10)\
-            .all()
-        
-        history_data = [{
-            'id': item.id,
-            'url': item.url,
-            'status': item.status,
-            'tweets': item.tweets
-        } for item in processing_history]
-        
-        return jsonify({'history': history_data})
-    except Exception as e:
-        logging.error(f"Error fetching processing history: {str(e)}")
-        return jsonify({'history': []})
-    finally:
-        db.close()
-
 @bp.route('/prompts', methods =['GET','POST'])
 @login_required
 def prompts():
@@ -128,7 +103,7 @@ def prompts():
     except Exception as e:
         logging.error(f"Error in prompts route: {str(e)}")
         flash(f'An error occurred: {str(e)}', 'error')
-        return redirect(url_for('base.base'))
+        return redirect(url_for('base.actions'))
 
     if modified_prompt:
         form = PromptForm(obj=modified_prompt)
@@ -221,6 +196,7 @@ def schedule():
     form = ScheduleForm()
     result = None
     db = SessionLocal()
+    schedule_handler = Scheduler(current_user.id)
     
     try:
         # Add logging to track execution
@@ -237,9 +213,8 @@ def schedule():
         logging.info("Found %d schedules and generated csrf", len(schedules))
             
         if form.validate_on_submit():
-            result = Scheduler.create_blog_schedule(
+            result = schedule_handler.create_blog_schedule(
                 url=form.url.data,
-                user_id=current_user.id,
                 minutes=form.minutes.data
             )
             if result["status"] == "success":
@@ -343,10 +318,6 @@ def processing_result(result_id):
             logging.warning(f"No result found for ID: {result_id}")
             flash('Processing result not found', 'error')
             return redirect(url_for('base.base'))
-        
-        logging.info(f"Found result with status: {result.status}")
-        logging.info(f"Raw tweets data type: {type(result.tweets)}")
-        logging.info(f"Raw tweets content: {result.tweets}")
             
         tweets = []
         if result.tweets:
@@ -365,35 +336,11 @@ def processing_result(result_id):
     except json.JSONDecodeError as e:
         logging.error(f"Error parsing tweets JSON: {str(e)}")
         flash('Error parsing tweets data', 'error')
-        return redirect(url_for('base.base'))
+        return redirect(url_for('base.actions'))
     except Exception as e:
         logging.error(f"Unexpected error: {str(e)}")
         flash('An unexpected error occurred', 'error')
-        return redirect(url_for('base.base'))
-    finally:
-        db.close()
-
-@bp.route('/disable_schedule/<int:schedule_id>', methods=['POST'])
-@login_required
-def disable_schedule(schedule_id):
-    db = SessionLocal()
-    try:
-        # Verify the schedule belongs to the current user
-        schedule = db.query(Schedule).filter_by(id=schedule_id, user_id=current_user.id).first()
-        if not schedule:
-            return jsonify({
-                "status": "error",
-                "message": "Schedule not found or access denied"
-            })
-
-        result = Scheduler.disable_schedule(schedule_id)
-        return jsonify(result)
-    except Exception as e:
-        logging.error(f"Error disabling schedule: {str(e)}")
-        return jsonify({
-            "status": "error",
-            "message": f"An error occurred: {str(e)}"
-        })
+        return redirect(url_for('base.actions'))
     finally:
         db.close()
 
@@ -424,26 +371,23 @@ def blog_detail(blog_id):
     finally:
         db.close()
 
-@bp.route('/blog_comparison/<int:comparison_id>')
+@bp.route('/blog_comparison/<int:comparison_id>',methods=['GET', 'POST'])
 @login_required
 def blog_comparison_detail(comparison_id):
-    db = SessionLocal()
     try:
-        comparison = db.query(BlogProfileComparison)\
-            .filter_by(id=comparison_id, user_id=current_user.id)\
-            .first()
-        
-        if not comparison:
-            flash('Comparison not found or access denied', 'error')
-            return redirect(url_for('base.blog_analysis'))
-        
-        return render_template('blog_comparison_detail.html', comparison=comparison)
+        comparison_handler = Blog_Profile_Comparison_Handler(current_user.id)
+        processing_handler = Processing_Result_Handler(current_user.id)
+        comparison = comparison_handler.get_comparison_by_id(comparison_id=comparison_id)["comparison"]
+        if comparison.processing_result_id:
+            processing_result = comparison_handler.get_processing_result_of_comparison(comparison_id=comparison_id)["processing_result"]
+            parts= processing_handler.get_tweet_in_parts(processing_result.id)["parts"]
+        else:
+            processing_result = None
+            parts = None
+        return render_template('blog_comparison_detail.html', comparison=comparison, processing_result=processing_result,parts=parts)
     except Exception as e:
-        logging.error(f"Error in blog comparison detail route: {str(e)}")
-        flash('An error occurred while processing your request', 'error')
-        return redirect(url_for('base.blog_analysis'))
-    finally:
-        db.close()
+        logging.error(f"Couldn't get comparison with id {comparison_id} error: {e}")
+        return redirect(url_for('base.actions'))
 
 @bp.route('/blog_analysis', methods=['GET', 'POST'])
 @login_required
@@ -486,8 +430,8 @@ def blog_comparison_list():
     # Get selected statuses from query parameters, default to all relevant statuses if none selected
     selected_statuses = request.args.getlist('statuses') or all_statuses
     
-    result = Blog_Profile_Comparison_Handler.get_user_comparisons_by_whatsapp_status(
-        user_id=current_user.id,
+    blog_profile_handler = Blog_Profile_Comparison_Handler(current_user.id)
+    result = blog_profile_handler.get_user_comparisons_by_whatsapp_status(
         whatsapp_statuses=selected_statuses
     )
     
@@ -495,6 +439,26 @@ def blog_comparison_list():
     
     return render_template(
         'relevant_blog_comparison_list.html', 
+        comparisons=comparisons,
+        all_statuses=all_statuses,
+        selected_statuses=selected_statuses
+    )
+
+@bp.route('/actions')
+@login_required
+def actions():
+    # All possible statuses for the filter form
+    all_statuses = ["Notified User", "Drafted Post", "Posted", "Ignored Article", "Ignored Draft", "Failed","Drafting Post"]
+    selected_statuses = request.args.getlist('statuses') or ["Notified User", "Drafted Post"]
+    comparison_handler = Blog_Profile_Comparison_Handler(current_user.id)
+    result = comparison_handler.get_user_comparisons_by_whatsapp_status(
+        whatsapp_statuses=selected_statuses
+    )
+    
+    comparisons = result.get("comparisons", [])
+    
+    return render_template(
+        'actions.html', 
         comparisons=comparisons,
         all_statuses=all_statuses,
         selected_statuses=selected_statuses

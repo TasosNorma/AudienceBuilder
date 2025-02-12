@@ -53,7 +53,7 @@ class ResponseHandler:
                     comparison.whatsapp_status = "Drafted Post"
                     # Import here to avoid circular import
                     from celery_worker.tasks import process_url_for_whatsapp
-                    task = process_url_for_whatsapp.delay(comparison.id)
+                    task = process_url_for_whatsapp.delay(comparison.id,comparison.user_id)
                     logging.info(f"Queued process_url_for_whatsapp task for comparison {comparison.id} the task is {task.id}")
                     db.commit()
                     return True

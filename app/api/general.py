@@ -1,17 +1,17 @@
 from ..database.database import SessionLocal
-from ..database.models import Schedule, Profile,ProfileComparison,User,Blog,BlogProfileComparison
+from ..database.models import Schedule, Profile,ProfileComparison,User,Blog,BlogProfileComparison,ProcessingResult
 from celery_worker.config import beat_dburi
 from sqlalchemy_celery_beat.models import PeriodicTask, IntervalSchedule, Period
 from sqlalchemy_celery_beat.session import SessionManager
 import logging
 from datetime import datetime
 import json
-from celery_worker.tasks import compare_profile_task,blog_analyse
 
 class Scheduler:
+    def __init__(self,user_id: int) -> None:
+        self.user_id = user_id
         
-    @classmethod
-    def create_blog_schedule(cls, url: str, user_id: int,minutes: int) -> dict:
+    def create_blog_schedule(self, url: str,minutes: int) -> dict:
         app_db = SessionLocal()
         try:
             # Create celery schedule
@@ -31,7 +31,7 @@ class Scheduler:
                 schedule_model=interval_schedule,
                 name=task_name,
                 task='celery_worker.tasks.blog_analyse',
-                args=json.dumps([url, user_id]),
+                args=json.dumps([url, self.user_id]),
                 kwargs=json.dumps({}),
                 description='Scheduled URL processing task'
             )
@@ -40,7 +40,7 @@ class Scheduler:
 
             # Create user schedule record
             schedule = Schedule(
-                user_id=user_id,
+                user_id=self.user_id,
                 name=task_name,
                 url=url,
                 minutes=minutes,
@@ -72,19 +72,18 @@ class Scheduler:
             beat_session.close()
             app_db.close()
 
-    @classmethod
-    def disable_schedule(cls,schedule_id:int) -> dict:
+    def disable_schedule(self,schedule_id:int) -> dict:
         app_db = SessionLocal()
         session_manager = SessionManager()
         beat_session = session_manager.session_factory(beat_dburi)
 
         try:
             # Get the schedule from our application database
-            schedule = app_db.query(Schedule).filter_by(id=schedule_id).first()
+            schedule = app_db.query(Schedule).filter_by(id=schedule_id,user_id=self.user_id).first()
             if not schedule:
                 return {
                     "status": "error",
-                    "message": f"Schedule with id {schedule_id} not found"
+                    "message": f"Schedule with id {schedule_id} not found or access denied"
                 }
 
             # Disable the periodic task in beat database
@@ -114,7 +113,7 @@ class Scheduler:
         finally:
             beat_session.close()
             app_db.close()
-    
+           
 class Profile_Handler:
     @classmethod
     def change_interests_description(cls,user_id:int,new_description: str) -> dict:
@@ -167,6 +166,7 @@ class Profile_Handler:
             db.refresh(profile_comparison)
 
             # Invoke celery task
+            from celery_worker.tasks import compare_profile_task
             compare_profile_task.delay(profile_comparison.id, user_id)
             logging.info(f"Successfully created profile comparison with ID {profile_comparison.id} for user {user_id}")
 
@@ -244,6 +244,7 @@ class Blog_Analysis_Handler:
     @classmethod
     def create_blog_analyse_session(cls,user_id:int, url:str) -> dict:
         try:
+            from celery_worker.tasks import blog_analyse
             blog_analyse.delay(user_id = user_id , url = url)
             logging.info(f"Blog Analysis was initiated")
             return {
@@ -267,15 +268,16 @@ class Blog_Analysis_Handler:
             }
     
 class Blog_Profile_Comparison_Handler:
+    def __init__(self, user_id: int):
+        self.user_id = user_id
     # Takes a list of whatsap_statuses and return comparisons order by created_at
-    @classmethod
-    def get_user_comparisons_by_whatsapp_status(cls, user_id: int, whatsapp_statuses: list[str]) -> dict:
+    def get_user_comparisons_by_whatsapp_status(self, whatsapp_statuses: list[str]) -> dict:
         db = SessionLocal()
         try:
             comparisons = (
                 db.query(BlogProfileComparison)
                 .filter(
-                    BlogProfileComparison.user_id == user_id,
+                    BlogProfileComparison.user_id == self.user_id,
                     BlogProfileComparison.whatsapp_status.in_(whatsapp_statuses)
                 )
                 .order_by(BlogProfileComparison.created_at.desc())
@@ -293,3 +295,183 @@ class Blog_Profile_Comparison_Handler:
             }
         finally:
             db.close()
+    
+    def get_comparison_by_id(self, comparison_id: int) -> dict:
+        db = SessionLocal()
+        try:
+            comparison = db.query(BlogProfileComparison).filter(
+                BlogProfileComparison.id == comparison_id,
+                BlogProfileComparison.user_id == self.user_id 
+            ).first()
+            
+            return {
+                "status": "success",
+                "comparison": comparison
+            }
+        except Exception as e:
+            logging.error(f"Error fetching comparison: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to fetch comparison: {str(e)}"
+            }
+        finally:
+            db.close()
+    
+    def update_comparison_status(self, comparison_id: int, new_status: str) -> dict:
+        db = SessionLocal()
+        try:
+            comparison = db.query(BlogProfileComparison).filter(
+                BlogProfileComparison.id == comparison_id,
+                BlogProfileComparison.user_id == self.user_id
+            ).first()
+            
+            if not comparison:
+                return {
+                    "status": "error",
+                    "message": "Comparison not found or access denied"
+                }
+            
+            comparison.whatsapp_status = new_status
+            db.commit()
+            logging.info(f"Updated comparison {comparison_id} status to {new_status}")
+            
+            return {
+                "status": "success",
+                "message": f"Comparison status updated to {new_status}"
+            }
+        except Exception as e:
+            db.rollback()
+            comparison.whatsapp_status = "Failed"
+            comparison.error_message = str(e)
+            logging.error(f"Error updating comparison status: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Error occurred while updating status: {str(e)}"
+            }
+        finally:
+            db.close()
+
+    def trigger_process_url_for_whatsapp_task(self, comparison_id: int) -> dict:
+        try:
+            # Import here to avoid circular import
+            from celery_worker.tasks import process_url_for_whatsapp
+            task = process_url_for_whatsapp.delay(comparison_id, self.user_id)
+            
+            return {
+                "status": "success",
+                "task_id": task.id
+            }
+        except Exception as e:
+            logging.error(f"Error triggering WhatsApp processing task: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to trigger WhatsApp processing: {str(e)}"
+            }
+    
+    def get_processing_result_of_comparison(self,comparison_id:int) -> dict:
+        db = SessionLocal()
+        try:
+            processing_result = db.query(ProcessingResult).filter(
+                ProcessingResult.blog_comparison_id == comparison_id,
+                ProcessingResult.user_id == self.user_id 
+            ).first()
+            
+            return {
+                "status": "success",
+                "processing_result": processing_result
+            }
+        except Exception as e:
+            logging.error(f"Error fetching comparison: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to fetch comparison: {str(e)}"
+            }
+        finally:
+            db.close()
+
+class Processing_Result_Handler:
+    def __init__(self, user_id: int):
+        self.user_id = user_id
+
+    def get_processing_result_by_id(self,processing_result_id:int) ->dict:
+        db = SessionLocal()
+        try:
+            processing_result = db.query(ProcessingResult).filter(
+                ProcessingResult.id == processing_result_id
+            ).first()
+            
+            if not processing_result:
+                return {
+                    "status": "error",
+                    "message": "No processing result found for this comparison"
+                }
+            
+            return {
+                "status": "success",
+                "processing_result": processing_result
+            }
+        except Exception as e:
+            logging.error(f"Error fetching processing result: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to fetch processing result: {str(e)}"
+            }
+        finally:
+            db.close()
+
+    def get_processing_result_by_comparison_id(self, comparison_id: int) -> dict:
+        db = SessionLocal()
+        try:
+            processing_result = db.query(ProcessingResult).filter(
+                ProcessingResult.blog_comparison_id == comparison_id
+            ).first()
+            
+            if not processing_result:
+                return {
+                    "status": "error",
+                    "message": "No processing result found for this comparison"
+                }
+            
+            return {
+                "status": "success",
+                "processing_result": processing_result
+            }
+        except Exception as e:
+            logging.error(f"Error fetching processing result: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to fetch processing result: {str(e)}"
+            }
+        finally:
+            db.close()
+    
+    def get_tweet_in_parts(self,processing_result_id:int) -> dict:
+        try:
+            parts = []
+            result = self.get_processing_result_by_id(processing_result_id)
+            if result["status"] == "success":
+                processing_result = result["processing_result"]
+            else:
+                return {
+                    "status": "error",
+                    "message": result["message"]
+                }
+            
+            if processing_result:
+                parts = json.loads(processing_result.tweets)
+            
+            return {
+                "status": "success",
+                "parts": parts
+            }
+        except Exception as e:
+            logging.error(f"Error getting tweet in parts: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to get tweet in parts: {str(e)}"
+            }
+
+        
+        
+
+

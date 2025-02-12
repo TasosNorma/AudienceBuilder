@@ -5,9 +5,16 @@
             <img src="https://getbootstrap.com/docs/5.3/assets/brand/bootstrap-logo.svg" alt="Logo" width="40" height="32">
         </div>
         <!-- Navigation Links -->
+        
         <ul class="nav nav-pills flex-column">
             <li class="nav-item">
-                <a href="{{ url_for('base.base') }}" class="nav-link {% if request.endpoint == 'base.base' %}active{% endif %}">
+                <a href="{{url_for('base.actions')}}" class="nav-link {% if request.endpoint == 'base.actions' %} active {% endif %}">
+                    <i class="bi bi-check2-square me-2"></i>
+                    Actions
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('base.process_url') }}" class="nav-link {% if request.endpoint == 'base.base' %}active{% endif %}">
                     <i class="bi bi-lightning-charge me-2"></i>
                     Generator
                 </a>

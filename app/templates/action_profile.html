@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Comparison Details</title>
+    <title>Action Detail</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
 </head>
@@ -10,32 +10,37 @@
     <div class="container">
         <div class="row justify-content-center">
             <div class="col-md-8">
-                <div class="py-5">
-                    <h1 class="display-4">Article Comparison Details</h1>
-                    <p class="lead">
-                        <a href="{{ comparison.url }}" target="_blank">{{ comparison.url }}</a>
-                    </p>
-                </div>
                 <!-- Action Buttons -->
                 <div class="py-4 d-flex gap-2 justify-content-center">
                     {% if comparison.whatsapp_status == 'Notified User' %}
-                    <button class="btn btn-sm btn-warning draft-post" comparison_id="{{ comparison.id}}">
-                        <i class="bi bi-eye"></i> Draft Post
-                    </button>
-                    <button class="btn btn-sm btn-warning ignore-comparison" comparison_id="{{ comparison.id}}">
-                        <i class="bi bi-eye"></i> Ignore
-                    </button>
+                        <a href="{{ url_for('base.blog_comparison_detail', comparison_id=comparison.id) }}" 
+                           class="btn btn-primary">
+                            <i class="bi bi-eye"></i> View Comparison
+                        </a>
+                        <a href="{{ url_for('base.blog_comparison_list') }}" 
+                           class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to List
+                        </a>
                     {% elif comparison.whatsapp_status == 'Drafted Post' %}
-                    <button class="btn btn-sm btn-warning post-comparison" comparison_id="{{ comparison.id}}">
-                        <i class="bi bi-eye"></i> Post Draft
-                    </button>
-                    <button class="btn btn-sm btn-warning ignore-draft" comparison_id="{{ comparison.id}}">
-                        <i class="bi bi-eye"></i> Ignore Draft
-                    </button>
+                        <a href="{{ url_for('base.blog_comparison_detail', comparison_id=comparison.id) }}" 
+                           class="btn btn-primary">
+                            <i class="bi bi-eye"></i> View Comparison
+                        </a>
+                        <a href="{{ url_for('base.blog_comparison_list') }}" 
+                           class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to List
+                        </a>
+                    {% endif %}
+                    
+                    {% if comparison.processing_result_id %}
+                        <a href="{{ url_for('base.processing_result', result_id=comparison.processing_result_id) }}" 
+                           class="btn btn-outline-secondary">
+                            <i class="bi bi-file-text"></i> Result
+                        </a>
                     {% endif %}
                 </div>
 
-                <!-- Basic Information Card -->
+                <!-- Content Cards -->
                 <div class="card mb-4">
                     <div class="card-body">
                         <h5 class="card-title">Basic Information</h5>
@@ -57,50 +62,28 @@
                             <dd class="col-sm-9">{{ comparison.id }}</dd>
                             <dt class="col-sm-3">Blog ID</dt>
                             <dd class="col-sm-9">{{ comparison.blog_id }}</dd>
-                            <dt class="col-sm-3">Profile Fit</dt>
-                            <dd class="col-sm-9">{{ comparison.comparison_result }}</dd>
-
                         </dl>
                     </div>
                 </div>
 
-                <!-- Processing Result -->
-                {% if processing_result %}
-                <div class="mb-4">
-                    <h5>Generated Tweets</h5>
-                    {% for part in parts %}
-                    <div class="card tweet-card mb-3">
-                        <div class="card-body">
-                            <div class="d-flex align-items-start">
-                                <span class="badge bg-primary me-2">{{loop.index}}</span>
-                                <p class="card-text mb-0">{{ part }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% endif %}
-
-
-                <!-- Summary Card -->
                 {% if comparison.short_summary %}
                 <div class="card mb-4">
                     <div class="card-body">
-                        <h2 class="h4 mb-3">Summary</h2>
-                        <p>{{ comparison.short_summary }}</p>
+                        <h5 class="card-title">Article Summary</h5>
+                        <p class="card-text">{{ comparison.short_summary }}</p>
                     </div>
                 </div>
                 {% endif %}
 
-                <!-- Profile Interests -->
+                {% if comparison.comparison_result %}
                 <div class="card mb-4">
                     <div class="card-body">
-                        <h2 class="h4 mb-3">Your Profile Interests</h2>
-                        <p>{{ comparison.profile_interests }}</p>
+                        <h5 class="card-title">Comparison Result</h5>
+                        <p class="card-text">{{ comparison.comparison_result }}</p>
                     </div>
                 </div>
+                {% endif %}
 
-                <!-- Error Message -->
                 {% if comparison.error_message %}
                 <div class="card mb-4 border-danger">
                     <div class="card-body text-danger">
@@ -112,7 +95,36 @@
             </div>
         </div>
     </div>
-    <script src="{{ url_for('static', filename='js/blog_comparison_detail.js') }}"></script>
-    <script>window.csrfToken = "{{ csrf_token() }}"</script>
+
+    <script>
+        function triggerAction(action, comparisonId) {
+            const actions = {
+                'draft': '/api/comparison/' + comparisonId + '/draft',
+                'ignore': '/api/comparison/' + comparisonId + '/ignore',
+                'post': '/api/comparison/' + comparisonId + '/post',
+                'ignore_draft': '/api/comparison/' + comparisonId + '/ignore_draft'
+            };
+
+            fetch(actions[action], {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while processing your request.');
+            });
+        }
+    </script>
 </body>
 </html>

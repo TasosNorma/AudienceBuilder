@@ -13,6 +13,7 @@ def create_app():
     from app.routes.base_routes import bp as base_bp
     from app.routes.auth_routes import auth_bp as auth_bp
     from app.routes.webhook_routes import webhook_bp
+    from app.routes.api_routes import api as api_bp
     # Create the manager
     login_manager = LoginManager()
     # Connect it to our Flask app
@@ -31,6 +32,7 @@ def create_app():
 
     app.debug = True
     logging.basicConfig(level=logging.DEBUG)
+    app.register_blueprint(api_bp)
     app.register_blueprint(base_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(webhook_bp)

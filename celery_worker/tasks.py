@@ -2,6 +2,7 @@ from celery_worker.config import celery_app
 from app.core.content_processor import SyncAsyncContentProcessor
 from app.database.database import SessionLocal
 from app.database.models import User, ProcessingResult, ProfileComparison, Profile, Blog, BlogProfileComparison
+from app.api.general import Blog_Profile_Comparison_Handler
 from datetime import datetime, timezone
 import json
 import asyncio
@@ -219,232 +220,37 @@ def compare_profile_task(self, comparison_id: int, user_id: int):
     finally:
         db.close()
 
-
-# This function:
-# 1. Takes a blog_id and user_id as input
-# 2. Extracts all articles from the blog's URL
-# 3. Creates pending BlogProfileComparison entries in the database for each article
-# 4. If the article has already been processed for that user, the database entry will reflect that.
-# 5. Generates a short summary for new article
-# 6. Compares each summary against the user's profile interests
-# 7. Updates the comparison records as either "relevant" or "not relevant"               
-@celery_app.task(bind=True)
-def blog_analyse_task_filter_out_past(self, blog_id: int, user_id: int):
-
-    # Get the blog and the user, get all the relevant articles of the blog, create database records for each one,
-    # Then get a small summary for each one and update the records in the database. 
-    try:
-        db = SessionLocal()
-        logging.info(f"Starting the first step of the blog analysis of blog_id: {blog_id}, user_id: {user_id}")
-        # Get the blog record, the user and initiate the processor.
-        blog = db.query(Blog).get(blog_id)
-        if not blog:
-            raise ValueError(f"Blog with id {blog_id} not found")
-        user = db.query(User).get(user_id)
-        if not user:
-            raise ValueError(f"User with id {user_id} not found")
-        processor = SyncAsyncContentProcessor(user)
-        profile = db.query(Profile).filter_by(user_id=user_id).first()
-        if not profile:
-            raise ValueError(f"Profile for user {user_id} not found")
-
-        # Get all articles from the blog
-        logging.info(f"Extracting articles from blog URL: {blog.url}")
-        try:
-            # Create and use an event loop for the async call
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                articles = loop.run_until_complete(processor.crawler.extract_all_articles_from_page(blog.url))
-                logging.info(f"Found {len(articles)} articles in blog")
-            finally:
-                loop.close()
-        except Exception as e:
-            logging.error(f"Failed to extract articles from blog: {str(e)}")
-            raise
-
-        # Update blog with number of articles found
-        blog.number_of_articles = len(articles)
-        blog.status = "processing"
-        db.commit()
-
-        # After getting articles, check which ones have been processed before
-        existing_comparisons = db.query(BlogProfileComparison).filter(
-            BlogProfileComparison.user_id == user_id
-        ).all()
-
-        # Create a set of already processed URLs
-        processed_urls = {comp.url for comp in existing_comparisons}
-
-        # Split articles into new and already processed
-        new_articles = {url: title for url, title in articles.items() if url not in processed_urls}
-        already_processed = {url: title for url, title in articles.items() if url in processed_urls}
-        logging.info(f"Found {len(new_articles)} new articles and {len(already_processed)} already processed articles")
-
-        # Create a list of new comparisons and add the already processed in the database.
-        comparisons = []
-        for url, title in new_articles.items():
-            comparison = BlogProfileComparison(
-                url=url,
-                blog_id=blog_id,
-                user_id=user_id,
-                profile_interests=profile.interests_description,
-                status="processing"
-            )
-            db.add(comparison)
-            comparisons.append(comparison)
-
-        # Mark already processed articles
-        for url in already_processed:
-            comparison = BlogProfileComparison(
-                url=url,
-                blog_id=blog_id,
-                user_id=user_id,
-                profile_interests=profile.interests_description,
-                status="already_processed"
-            )
-            db.add(comparison)
-        db.commit()
-
-
-
-        # Get user's profile for comparison and create all the BlogProfileEntries records and commit them to the database.
-        profile = db.query(Profile).filter_by(user_id=user_id).first()
-        if not profile:
-            raise ValueError(f"Profile for user {user_id} not found")
-        logging.info("Creating BlogProfileComparison entries")
-        
-        
-        # Make a small summary for each article and put it inside a list
-        short_summaries = []
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            for url in new_articles.keys():
-                short_summary = loop.run_until_complete(processor.crawler.write_small_summary(url))
-                short_summaries.append(short_summary)
-        finally:
-            loop.close()
-
-        # Update each comparison with its corresponding small summary
-        logging.info("Updating comparisons with small summaries")
-        try:
-            for comparison, short_summary in zip(comparisons, short_summaries):
-                if not short_summary:
-                    comparison.status = "failed"
-                else:
-                    comparison.short_summary = short_summary
-            db.commit()
-        except Exception as e:
-            logging.error(f"Failed to update comparisons with summaries: {str(e)}")
-            raise
-    except Exception as e:
-        logging.error(f"Error in the first step of processing blog {blog_id} for user {user_id}: {str(e)}")
-        blog.status = "failed"
-        blog.error_message = str(e)
-        db.commit()
-        return {
-            "status": "error",
-            "blog_id": blog_id,
-            "message": str(e)
-        }
-    finally:
-        db.close()
-
-    # Get the blog comparison records from the database, compare them to the profile and update the database records of 
-    # Both comparison results and the blog status. 
-    try:
-        db = SessionLocal()
-        logging.info(f"Starting async blog analysis for blog_id: {blog_id}, user_id: {user_id}")
-        # Get the blog record, the user and initiate the processor.
-        blog = db.query(Blog).get(blog_id)
-        if not blog:
-            raise ValueError(f"Blog with id {blog_id} not found")
-        user = db.query(User).get(user_id)
-        if not user:
-            raise ValueError(f"User with id {user_id} not found")
-        profile = db.query(Profile).filter_by(user_id=user_id).first()
-        processor = SyncAsyncContentProcessor(user)
-        # Get all BlogProfileComparison records for this user and blog
-        blog_comparisons = db.query(BlogProfileComparison).filter(
-            BlogProfileComparison.user_id == user_id,
-            BlogProfileComparison.blog_id == blog_id
-        ).all()
-        
-        fitting_articles = 0
-        for blog_comparison in blog_comparisons:
-            try:
-                short_summary = blog_comparison.short_summary
-                if not short_summary:
-                    continue
-                relevance_result = processor.is_article_relevant_short_summary(short_summary)
-                blog_comparison.comparison_result = "relevant" if relevance_result else "not_relevant"
-                blog_comparison.status = "completed"
-                if relevance_result:
-                    fitting_articles += 1
-                db.commit()
-            except Exception as e:
-                blog_comparison.status = "failed"
-                blog_comparison.comparison_result = None
-                db.commit()
-                logging.error(f"Failed to process comparison for URL {blog_comparison.url}: {str(e)}")
-
-        # Update blog status and fitting articles count
-        blog.status = "completed"
-        blog.number_of_fitting_articles = fitting_articles
-        db.commit()
-
-        try:
-            if blog.status == "completed":
-                from app.core.whatsapp import WhatsappHandler
-                whatsapp = WhatsappHandler()
-                whatsapp.notify_relevant_articles(user_id,blog_id)
-        except Exception as e:
-            logging.error(f"Failed to send WhatsApp notifications: {str(e)}")
-
-        return {
-            "status": "success",
-            "blog_id": blog_id,
-            "fitting_articles": fitting_articles
-        }
-    except Exception as e:
-        logging.error(f"Error in the second step of processing blog {blog_id} for user {user_id}: {str(e)}")
-        blog.status = "failed"
-        blog.error_message = str(e)
-        db.commit()
-        return {
-            "status": "error",
-            "blog_id": blog_id,
-            "message": str(e)
-        }
-    finally:
-        db.close()
-
 # Is called when user pressed "Draft", it creates a new processing result and calls the send_draft to show it to the user.
 @celery_app.task(bind=True)
-def process_url_for_whatsapp(self,comparison_id:int):
+def process_url_for_whatsapp(self,comparison_id:int,user_id:int):
     from app.core.whatsapp import WhatsappHandler
+    comparison_handler = Blog_Profile_Comparison_Handler(user_id=user_id)
     db = SessionLocal()
     try:
         logging.info(f"Starting process_url_for_whatsapp task for comparison_id: {comparison_id}")
-        comparison = db.query(BlogProfileComparison).get(comparison_id)
-        user_id = comparison.user_id
+        comparison_handler.update_comparison_status(comparison_id=comparison_id,new_status="Drafting Post")
+        result = comparison_handler.get_comparison_by_id(comparison_id=comparison_id)
+        if result["status"] == "error":
+            return result
+        comparison = result["comparison"]
         url = comparison.url
-        message_sid = comparison.message_sid
-        logging.info(f"Retrieved comparison data - user_id: {user_id}, url: {url}")
+        if comparison.message_sid:
+            message_sid = comparison.message_sid
+        else:
+            message_sid = None
 
         user = db.query(User).get(user_id)
         processor = SyncAsyncContentProcessor(user)
         logging.info(f"Processing URL content for comparison {comparison_id}")
-        result = processor.process_url(url)
+        post_result = processor.process_url(url)
         
         logging.info(f"Creating ProcessingResult for comparison {comparison_id}")
         processing_result = ProcessingResult(
             user_id=user_id,
             url=url,
             status="success", 
-            tweets=json.dumps(result.get("tweets", [])),
-            tweet_count=result.get("tweet_count", 0),
+            tweets=json.dumps(post_result.get("tweets", [])),
+            tweet_count=post_result.get("tweet_count", 0),
             message_sid=message_sid,
             whatsapp_triggered=True,
             task_id=self.request.id,
@@ -455,7 +261,10 @@ def process_url_for_whatsapp(self,comparison_id:int):
         db.commit()
         logging.info(f"Created ProcessingResult with id: {processing_result.id}")
 
+        # Get a fresh comparison object from the database in order to update it.
+        comparison = db.query(BlogProfileComparison).get(comparison_id)
         comparison.processing_result_id = processing_result.id
+        comparison_handler.update_comparison_status(comparison_id=comparison_id,new_status="Drafted Post")
         db.commit()
         logging.info(f"Updated comparison {comparison_id} with processing_result_id")
 
@@ -485,6 +294,7 @@ def process_url_for_whatsapp(self,comparison_id:int):
 @celery_app.task(bind=True)
 def blog_analyse(self, url: str, user_id: int):
     blog_id = None
+    logging.info(f"Starting blog analysis task for user {user_id} with URL: {url}")
     try:
         with SessionLocal() as db:
             logging.info(f"Starting Blog_Analysis of URL: {url}")
@@ -506,6 +316,7 @@ def blog_analyse(self, url: str, user_id: int):
             "message": str(e)
         }
     
+    logging.info(f"Starting extraction of articles from URL: {url}")
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -515,7 +326,6 @@ def blog_analyse(self, url: str, user_id: int):
         finally:
             loop.close()
 
-        # Update blog with article count in a new session
         with SessionLocal() as db:
             blog = db.query(Blog).get(blog_id)
             blog.number_of_articles = len(articles)
@@ -582,6 +392,7 @@ def blog_analyse(self, url: str, user_id: int):
                     comparison = db.query(BlogProfileComparison).get(comp_id)
                     if not short_summary:
                         comparison.status = "failed"
+                        comparison.error_message = 'Failed to get a short summary for the comparison'
                     else:
                         comparison.short_summary = short_summary
                 db.commit()

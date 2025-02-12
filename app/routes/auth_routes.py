@@ -22,7 +22,7 @@ def login():
         if user and user.check_password(form.password.data):
             login_user(user)
             flash('Logged in successfully!')
-            return redirect(url_for('base.base'))
+            return redirect(url_for('base.actions'))
         flash('Invalid email opr password')
         db.close()
     return render_template('login.html',form=form)
