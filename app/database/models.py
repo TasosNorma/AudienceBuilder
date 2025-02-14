@@ -82,7 +82,7 @@ class Schedule(Base):
     url = Column(String(2048), nullable=False)
     minutes = Column(Integer, nullable=False)
     interval_schedule_id = Column(Integer, nullable=False)
-    periodic_task_id = Column(Integer, nullable=False)
+    periodic_task_id = Column(Integer, nullable=True)
     last_run_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), 
@@ -109,10 +109,11 @@ class Blog(Base):
     url = Column(String(2048), nullable=False)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    status = Column(String(50), default='pending', nullable=False)  # pending, processing, completed, failed
+    status = Column(String(50), default='pending', nullable=False)
     number_of_articles = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
     number_of_fitting_articles = Column(Integer, default=0)
+    schedule_id = Column(Integer, ForeignKey('schedules.id'),nullable=True)
 
 class BlogProfileComparison(Base):
     __tablename__ = 'blog_profile_comparisons'
@@ -130,3 +131,4 @@ class BlogProfileComparison(Base):
     message_sid = Column(String(50),nullable=True)
     processing_result_id = Column(Integer, ForeignKey('processing_results.id'),nullable=True)
     error_message = Column(Text, nullable=True)
+    schedule_id = Column(Integer, ForeignKey('schedules.id'),nullable=True)

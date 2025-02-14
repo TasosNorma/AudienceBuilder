@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Schedule Details</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+</head>
+<body>
+    {% include 'sidebar.html' %}
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="py-5">
+                    <h1 class="display-4">Schedule Details</h1>
+                    <p class="lead">
+                        <a href="{{ schedule.url }}" target="_blank">{{ schedule.url }}</a>
+                    </p>
+                </div>
+
+                <!-- Schedule Information Card -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Schedule Information</h5>
+                        <dl class="row mb-0">
+                            <dt class="col-sm-3">Name</dt>
+                            <dd class="col-sm-9">{{ schedule.name }}</dd>
+                            
+                            <dt class="col-sm-3">Status</dt>
+                            <dd class="col-sm-9">
+                                <span class="badge {% if schedule.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ 'Active' if schedule.is_active else 'Inactive' }}
+                                </span>
+                            </dd>
+                            
+                            <dt class="col-sm-3">Interval</dt>
+                            <dd class="col-sm-9">Every {{ schedule.minutes }} minutes</dd>
+                            
+                            <dt class="col-sm-3">Created At</dt>
+                            <dd class="col-sm-9">{{ schedule.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</dd>
+                        </dl>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                {% if schedule.is_active %}
+                <div class="d-grid gap-2 mb-4">
+                    <button class="btn btn-warning disable-schedule" data-schedule-id="{{ schedule.id }}">
+                        <i class="bi bi-pause-fill"></i> Disable Schedule
+                    </button>
+                </div>
+                {% endif %}
+
+                <!-- Associated Blogs -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Associated Blogs</h5>
+                        {% if schedule.blogs %}
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Created At</th>
+                                            <th>Status</th>
+                                            <th>Articles</th>
+                                            <th>Fitting Articles</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for blog in schedule.blogs %}
+                                        <tr>
+                                            <td>{{ blog.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                            <td>
+                                                <span class="badge {% if blog.status == 'completed' %}bg-success
+                                                                 {% elif blog.status == 'failed' %}bg-danger
+                                                                 {% else %}bg-warning{% endif %}">
+                                                    {{ blog.status }}
+                                                </span>
+                                            </td>
+                                            <td>{{ blog.number_of_articles }}</td>
+                                            <td>{{ blog.number_of_fitting_articles }}</td>
+                                            <td>
+                                                <a href="{{ url_for('base.blog_detail', blog_id=blog.id) }}" 
+                                                   class="btn btn-sm btn-primary">
+                                                    <i class="bi bi-eye"></i> View
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted">No blogs associated with this schedule yet.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/schedule_detail.js') }}"></script>
+    <script>window.csrfToken = "{{ csrf_token() }}"</script>
+</body>
+</html>

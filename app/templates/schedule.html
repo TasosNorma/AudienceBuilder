@@ -104,9 +104,9 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <button class="btn btn-sm btn-warning disable-schedule" data-schedule-id="{{ schedule.id }}">
-                                            <i class="bi bi-pause-fill"></i> Disable
-                                        </button>
+                                        <a href="{{ url_for('base.schedule_profile', schedule_id=schedule.id) }}" class="btn btn-sm btn-primary me-2">
+                                                <i class="bi bi-eye"></i> View
+                                        </a>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -119,7 +119,5 @@
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/schedule.js') }}"></script>
-    <script>window.csrfToken = "{{ csrf_token }}"</script>
 </body>
 </html>

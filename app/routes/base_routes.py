@@ -130,7 +130,7 @@ def prompts():
 @login_required
 def onboarding():
     if current_user.is_onboarded:
-        return redirect(url_for('base.base'))
+        return redirect(url_for('base.actions'))
     
     db= SessionLocal()
     form = SetupProfileForm()
@@ -152,7 +152,7 @@ def onboarding():
             db.commit()
 
             flash('Profile Created Successfully!','success')
-            return redirect(url_for('base.base'))
+            return redirect(url_for('base.actions'))
         except Exception as e:
             db.rollback()
             flash(f'Error creating the profile{str(e)}','error')
@@ -237,6 +237,23 @@ def schedule():
     finally:
         db.close()
 
+@bp.route('/schedule/<int:schedule_id>')
+@login_required
+def schedule_profile(schedule_id):
+    try:
+        schedule_handler = Scheduler(current_user.id)
+        result = schedule_handler.get_schedule_profile(schedule_id)
+        
+        if result["status"] == "error":
+            flash(result["message"], 'error')
+            return redirect(url_for('base.schedule'))
+            
+        return render_template('schedule_profile.html', schedule=result["schedule"])
+    except Exception as e:
+        logging.error(f"Error in schedule detail route: {str(e)}")
+        flash('An error occurred while processing your request', 'error')
+        return redirect(url_for('base.schedule'))
+
 @bp.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
@@ -261,7 +278,7 @@ def profile():
         return render_template('profile.html', form=form, profile=profile)
     except Exception as e:
         logging.error(f"Error in profile route: {str(e)}", exc_info=True)
-        return redirect(url_for('base.base'))
+        return redirect(url_for('base.actions'))
     finally:
         db.close()
 
@@ -317,7 +334,7 @@ def processing_result(result_id):
         if not result:
             logging.warning(f"No result found for ID: {result_id}")
             flash('Processing result not found', 'error')
-            return redirect(url_for('base.base'))
+            return redirect(url_for('base.actions'))
             
         tweets = []
         if result.tweets:
@@ -418,7 +435,7 @@ def blog_analysis():
     except Exception as e:
         logging.error(f"Error in blog analysis route: {str(e)}")
         flash('An error occurred while processing your request', 'error')
-        return redirect(url_for('base.base'))
+        return redirect(url_for('base.actions'))
     finally:
         db.close()
 

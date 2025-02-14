@@ -60,21 +60,21 @@ services:
     networks:
       - app-network
 
-  flower:
-    build:
-      context: .
-      dockerfile: Dockerfile.flask
-    command: celery -A celery_worker flower --port=5555 --broker=redis://:tC%40T%23KxM4~82%24jQw@redis:6379/0
-    ports:
-      - "5555:5555"
-    environment:
-      - CELERY_BROKER_URL=redis://:RDga5zyMvEbhSeA9@redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://:RDga5zyMvEbhSeA9@redis:6379/0
-    depends_on:
-      - redis
-      - celery-worker
-    networks:
-      - app-network
+  # flower:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.flask
+  #   command: celery -A celery_worker flower --port=5555 --broker=redis://:tC%40T%23KxM4~82%24jQw@redis:6379/0
+  #   ports:
+  #     - "5555:5555"
+  #   environment:
+  #     - CELERY_BROKER_URL=redis://:RDga5zyMvEbhSeA9@redis:6379/0
+  #     - CELERY_RESULT_BACKEND=redis://:RDga5zyMvEbhSeA9@redis:6379/0
+  #   depends_on:
+  #     - redis
+  #     - celery-worker
+  #   networks:
+  #     - app-network
 
   redis:
     image: redis:latest

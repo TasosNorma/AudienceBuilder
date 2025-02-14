@@ -26,28 +26,28 @@ class Scheduler:
             beat_session.flush()  # Flush to get the ID
 
             task_name = f'Blog_Analysis{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+
+            schedule = Schedule(
+            user_id=self.user_id,
+            name=task_name,
+            url=url,
+            minutes=minutes,
+            interval_schedule_id=interval_schedule.id
+            )
+            app_db.add(schedule)
+            app_db.flush()
             
             interval_task = PeriodicTask(
                 schedule_model=interval_schedule,
                 name=task_name,
                 task='celery_worker.tasks.blog_analyse',
-                args=json.dumps([url, self.user_id]),
+                args=json.dumps([url, self.user_id, schedule.id]),
                 kwargs=json.dumps({}),
                 description='Scheduled URL processing task'
             )
             beat_session.add(interval_task)
             beat_session.flush()  # Flush to get the ID
-
-            # Create user schedule record
-            schedule = Schedule(
-                user_id=self.user_id,
-                name=task_name,
-                url=url,
-                minutes=minutes,
-                interval_schedule_id=interval_schedule.id,
-                periodic_task_id=interval_task.id
-            )
-            app_db.add(schedule)
+            schedule.periodic_task_id = interval_task.id
             
             # Commit both sessions
             beat_session.commit()
@@ -113,7 +113,64 @@ class Scheduler:
         finally:
             beat_session.close()
             app_db.close()
-           
+    
+    def get_schedule_profile(self, schedule_id: int) -> dict:
+        db = SessionLocal()
+        try:
+            # Get schedule details
+            schedule = (
+                db.query(Schedule)
+                .filter_by(id=schedule_id, user_id=self.user_id)
+                .first()
+            )
+            
+            if not schedule:
+                return {
+                    "status": "error",
+                    "message": "Schedule not found or access denied"
+                }
+            
+            # Get associated blogs
+            associated_blogs = (
+                db.query(Blog)
+                .filter_by(schedule_id=schedule_id)
+                .all()
+            )
+            
+            # Format the response
+            return {
+                "status": "success",
+                "schedule": {
+                    "id": schedule.id,
+                    "name": schedule.name,
+                    "url": schedule.url,
+                    "minutes": schedule.minutes,
+                    "created_at": schedule.created_at,
+                    "is_active": schedule.is_active,
+                    "last_run_at": schedule.last_run_at,
+                    "blogs": [
+                        {
+                            "id": blog.id,
+                            "url": blog.url,
+                            "status": blog.status,
+                            "created_at": blog.created_at,
+                            "number_of_articles": blog.number_of_articles,
+                            "number_of_fitting_articles": blog.number_of_fitting_articles,
+                            "error_message": blog.error_message
+                        }
+                        for blog in associated_blogs
+                    ]
+                }
+            }
+        except Exception as e:
+            logging.error(f"Error fetching schedule profile: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to fetch schedule profile: {str(e)}"
+            }
+        finally:
+            db.close()
+       
 class Profile_Handler:
     @classmethod
     def change_interests_description(cls,user_id:int,new_description: str) -> dict:
@@ -470,8 +527,3 @@ class Processing_Result_Handler:
                 "status": "error",
                 "message": f"Failed to get tweet in parts: {str(e)}"
             }
-
-        
-        
-
-

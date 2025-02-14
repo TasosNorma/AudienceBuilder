@@ -10,7 +10,7 @@ auth_bp = Blueprint('auth',__name__)
 @auth_bp.route('/')
 def index():
     if current_user.is_authenticated:
-        return redirect(url_for('base.base'))
+        return redirect(url_for('base.actions'))
     return redirect(url_for('auth.login'))
 
 @auth_bp.route('/login',methods=['GET','POST'])
@@ -30,7 +30,7 @@ def login():
 @auth_bp.route('/register',methods=['GET','POST'])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for('base.base'))
+        return redirect(url_for('actions.base'))
     form = RegistrationForm()
     if form.validate_on_submit():
         db = SessionLocal()

@@ -292,7 +292,7 @@ def process_url_for_whatsapp(self,comparison_id:int,user_id:int):
 # 3. Checks if Articles have been already processed before, if not, it finds out if they are relevant to the user profile
 # 4. It then calls the Whatsapp_Handler to notify the user.
 @celery_app.task(bind=True)
-def blog_analyse(self, url: str, user_id: int):
+def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
     blog_id = None
     logging.info(f"Starting blog analysis task for user {user_id} with URL: {url}")
     try:
@@ -304,7 +304,8 @@ def blog_analyse(self, url: str, user_id: int):
                     url=url,
                     user_id=user_id,
                     status="processing", 
-                    created_at=datetime.utcnow()
+                    created_at=datetime.utcnow(),
+                    schedule_id=schedule_id
                 )
             db.add(blog)
             db.commit()
@@ -350,6 +351,7 @@ def blog_analyse(self, url: str, user_id: int):
                     url=url,
                     blog_id=blog_id,
                     user_id=user_id,
+                    schedule_id=schedule_id,
                     profile_interests=profile.interests_description,
                     status="processing"
                 )
@@ -367,6 +369,7 @@ def blog_analyse(self, url: str, user_id: int):
                     url=url,
                     blog_id=blog_id,
                     user_id=user_id,
+                    schedule_id=schedule_id,
                     profile_interests=profile.interests_description,
                     status="already_processed"
                 )
