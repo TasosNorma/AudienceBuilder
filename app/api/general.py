@@ -299,15 +299,11 @@ class Profile_Handler:
     
 class Blog_Analysis_Handler:
     @classmethod
-    def create_blog_analyse_session(cls,user_id:int, url:str) -> dict:
+    def create_blog_analyse_session(cls,user_id:int, url:str):
         try:
             from celery_worker.tasks import blog_analyse
             blog_analyse.delay(user_id = user_id , url = url)
             logging.info(f"Blog Analysis was initiated")
-            return {
-                    "status": "success",
-                    "message": "Blog analysis inititated",
-                }
         except Exception as e:
             logging.error(f"Error creating blog analysis: {str(e)}")
             with SessionLocal() as db:
@@ -319,10 +315,7 @@ class Blog_Analysis_Handler:
                 )
                 db.add(blog)
                 db.commit()
-            return {
-                "status": "error", 
-                "message": f"Failed to create blog analysis: {str(e)}"
-            }
+                raise e          
     
 class Blog_Profile_Comparison_Handler:
     def __init__(self, user_id: int):

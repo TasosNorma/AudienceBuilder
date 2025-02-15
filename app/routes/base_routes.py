@@ -424,18 +424,11 @@ def blog_analysis():
                 user_id=current_user.id,
                 url=form.url.data
             )
-            if result["status"] == "success":
-                flash('Blog analysis initiated successfully', 'success')
-                return redirect(url_for('base.blog_analysis'))
-            else:
-                flash(result["message"], 'error')
-                return redirect(url_for('base.blog_analysis'))
-        
         return render_template('blog_analysis.html', form=form, blogs=blogs)
     except Exception as e:
         logging.error(f"Error in blog analysis route: {str(e)}")
         flash('An error occurred while processing your request', 'error')
-        return redirect(url_for('base.actions'))
+        return redirect(url_for('base.blog_analysis'))
     finally:
         db.close()
 
