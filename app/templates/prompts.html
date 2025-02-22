@@ -26,6 +26,16 @@
                     <h1 class="display-4 fw-bold">Prompt Management</h1>
                     <p class="lead text-muted">Create and manage your tweet generation prompts</p>
                 </div>
+                <!-- Flashes -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{% if category == 'error' %}danger{% else %}info{% endif %}">
+                                        {{ message }}
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
                 <div class="card form-card p-4 mb-4">
                     <form method="POST">
                         {{form.csrf_token}}

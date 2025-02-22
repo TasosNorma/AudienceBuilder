@@ -18,13 +18,19 @@ services:
       - CELERY_RESULT_BACKEND=redis://:RDga5zyMvEbhSeA9@redis:6379/0
     depends_on:
       - redis
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-region: "us-east-1"
+        awslogs-group: "AudienceBuilder-logs"
+        awslogs-stream: "flask-app"
     networks:
       - app-network
 
   celery-worker:
     build:
       context: .
-      dockerfile: Dockerfile.worker
+      dockerfile: infra/Dockerfile.worker
     command: celery -A celery_worker worker --loglevel=info --concurrency=1 --max-memory-per-child=400000
     environment:
       - SECRET_KEY=${SECRET_KEY}
@@ -37,13 +43,19 @@ services:
       - CELERY_RESULT_BACKEND=redis://:RDga5zyMvEbhSeA9@redis:6379/0
     depends_on:
       - redis
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-region: "us-east-1"
+        awslogs-group: "AudienceBuilder-logs"
+        awslogs-stream: "celery"
     networks:
       - app-network
 
   celery-beat:
     build:
       context: .
-      dockerfile: Dockerfile.worker
+      dockerfile: infra/Dockerfile.worker
     command: celery -A celery_worker beat --loglevel=info 
     environment:
       - SECRET_KEY=${SECRET_KEY}
@@ -57,24 +69,14 @@ services:
     depends_on:
       - redis
       - celery-worker
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-region: "us-east-1"
+        awslogs-group: "AudienceBuilder-logs"
+        awslogs-stream: "beat-scheduler"
     networks:
       - app-network
-
-  # flower:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.flask
-  #   command: celery -A celery_worker flower --port=5555 --broker=redis://:tC%40T%23KxM4~82%24jQw@redis:6379/0
-  #   ports:
-  #     - "5555:5555"
-  #   environment:
-  #     - CELERY_BROKER_URL=redis://:RDga5zyMvEbhSeA9@redis:6379/0
-  #     - CELERY_RESULT_BACKEND=redis://:RDga5zyMvEbhSeA9@redis:6379/0
-  #   depends_on:
-  #     - redis
-  #     - celery-worker
-  #   networks:
-  #     - app-network
 
   redis:
     image: redis:latest
@@ -86,21 +88,17 @@ services:
     hostname: redis
     container_name: redis
     command: redis-server /usr/local/etc/redis/redis.conf --appendonly yes --save "" --stop-writes-on-bgsave-error no # Changes the way we store backups in the disk to have less chance of corruption.
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-region: "us-east-1"
+        awslogs-group: "AudienceBuilder-logs"
+        awslogs-stream: "redis"
     healthcheck: # Will not start other containers if this fails
       test: ["CMD", "redis-cli", "ping"] 
       interval: 5s  
       retries: 5 
   
-  ngrok:
-    image: ngrok/ngrok:latest
-    ports:
-      - "4040:4040"
-    environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-    command: http flask-app:10000
-    networks:
-      - app-network
-
 networks:
   app-network:
     driver: bridge

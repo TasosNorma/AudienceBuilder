@@ -13,7 +13,7 @@ celery_app = Celery(
     'content_processor',     # Name of application
     broker=CELERY_BROKER_URL,     # URL for the message broker (Redis)
     backend=CELERY_RESULT_BACKEND,  # Where to store task results (Supabase)
-    include=['celery_worker.tasks']  # Python modules to import when workers start
+    include=['app.celery_worker.tasks']  # Python modules to import when workers start
 )
 # Configure Celery
 celery_app.conf.update(
@@ -32,12 +32,10 @@ celery_app.conf.update(
     
     # Route tasks to specific queues
     task_routes={
-        'celery_worker.tasks.process_url_task': {'queue': 'content_processing'},
-        'celery_worker.tasks.process_url_task_no_processing_id': {'queue': 'content_processing'},
-        'celery_worker.tasks.compare_profile_task':{'queue':'content_processing'},
-        'celery_worker.tasks.blog_analyse': {'queue': 'content_processing'},
-        'celery_worker.tasks.blog_analyse_task_filter_out_past': {'queue': 'content_processing'},
-        'celery_worker.tasks.process_url_for_whatsapp': {'queue': 'content_processing'}
+        'app.celery_worker.tasks.generate_post': {'queue': 'content_processing'},
+        'app.celery_worker.tasks.compare_profile_task':{'queue':'content_processing'},
+        'app.celery_worker.tasks.blog_analyse': {'queue': 'content_processing'},
+        'app.celery_worker.tasks.generate_post_from_comparison': {'queue': 'content_processing'}
     },
     
     # Task execution settings
@@ -47,7 +45,7 @@ celery_app.conf.update(
     # Result settings
     result_expires=86400,  # Results expire in 24 hours
 
-    # Beat scheduler settings
+    # Beat Schedule_Handler settings
     beat_dburi= beat_dburi,  
     beat_scheduler='sqlalchemy_celery_beat.schedulers:DatabaseScheduler',
 )

@@ -1,9 +1,10 @@
 from flask import Blueprint, jsonify
 from flask_login import login_required, current_user
 from ..database.database import SessionLocal
-from ..database.models import BlogProfileComparison,ProcessingResult
+from ..database.models import BlogProfileComparison,Post
 import logging
-from ..api.general import Scheduler, Blog_Profile_Comparison_Handler,Processing_Result_Handler
+from ..core.helper_handlers import Schedule_Handler, Blog_Profile_Comparison_Handler
+from ..celery_worker.tasks import generate_post_from_comparison
 
 api = Blueprint('api',__name__)
 
@@ -12,9 +13,11 @@ api = Blueprint('api',__name__)
 @login_required
 def disable_schedule(schedule_id):
     try:
-        schedule_handler = Scheduler(current_user.id)
-        result = schedule_handler.disable_schedule(schedule_id)
-        return jsonify(result)
+        schedule_handler = Schedule_Handler(current_user.id)
+        schedule_handler.disable_schedule(schedule_id)
+        return jsonify({
+            "status": "success"
+        })
     except Exception as e:
         logging.error(f"Error disabling schedule: {str(e)}")
         return jsonify({
@@ -27,9 +30,10 @@ def disable_schedule(schedule_id):
 @login_required
 def ignore_comparison(comparison_id):
     try:
-        comparison_handler = Blog_Profile_Comparison_Handler(current_user.id)
-        result = comparison_handler.update_comparison_status(comparison_id, "Ignored Article")
-        return jsonify(result)
+        Blog_Profile_Comparison_Handler.update_comparison_status(comparison_id, BlogProfileComparison.STATUS_INGNORED_COMPARISON,user_id=current_user.id)
+        return jsonify({
+            "status": "success"
+        })
     except Exception as e:
         logging.error(f"Error ignoring comparison: {str(e)}")
         return jsonify({
@@ -41,9 +45,10 @@ def ignore_comparison(comparison_id):
 @login_required
 def post_comparison(comparison_id):
     try:
-        comparison_handler = Blog_Profile_Comparison_Handler(current_user.id)
-        result = comparison_handler.update_comparison_status(comparison_id, "Posted")
-        return jsonify(result)
+        Blog_Profile_Comparison_Handler.update_comparison_status(comparison_id, BlogProfileComparison.STATUS_POSTED,user_id=current_user.id)
+        return jsonify({
+            "status": "success"
+        })
     except Exception as e:
         logging.error(f"Error posting comparison: {str(e)}")
         return jsonify({
@@ -56,9 +61,10 @@ def post_comparison(comparison_id):
 @login_required
 def draft_comparison(comparison_id):
     try:
-        comparison_handler = Blog_Profile_Comparison_Handler(current_user.id)
-        result = comparison_handler.trigger_process_url_for_whatsapp_task(comparison_id)
-        return jsonify(result)
+        generate_post_from_comparison.delay(comparison_id = comparison_id, user_id = current_user.id )
+        return jsonify({
+            "status": "success"
+        })
     except Exception as e:
         logging.error(f"Error drafting comparison: {str(e)}")
         return jsonify({
@@ -71,9 +77,10 @@ def draft_comparison(comparison_id):
 @login_required
 def ignore_draft_comparison(comparison_id):
     try:
-        comparison_handler = Blog_Profile_Comparison_Handler(current_user.id)
-        result = comparison_handler.update_comparison_status(comparison_id, "Ignored Draft")
-        return jsonify(result)
+        Blog_Profile_Comparison_Handler.update_comparison_status(comparison_id, BlogProfileComparison.STATUS_INGORED_DRAFT,user_id=current_user.id)
+        return jsonify({
+            "status": "success"
+        })
     except Exception as e:
         logging.error(f"Error ignoring draft comparison: {str(e)}")
         return jsonify({

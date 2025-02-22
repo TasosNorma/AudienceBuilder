@@ -19,35 +19,45 @@
             <div class="col-md-8 mx-auto">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h2 class="h4 mb-0">Processing Result Details</h2>
-                        <a href="{{ url_for('base.actions') }}" class="btn btn-outline-secondary btn-sm">
+                        <h2 class="h4 mb-0">Processing Post Details</h2>
+                        <a href="{{ url_for('tmpl.actions') }}" class="btn btn-outline-secondary btn-sm">
                             <i class="bi bi-arrow-left"></i> Back
                         </a>
                     </div>
+                    <!-- Flashes -->
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{% if category == 'error' %}danger{% else %}info{% endif %}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    {% endwith %}
                     <div class="card-body">
                         <div class="mb-4">
                             <h5>Source URL</h5>
-                            <a href="{{ result.url }}" target="_blank" class="text-break">{{ result.url }}</a>
+                            <a href="{{ post.url }}" target="_blank" class="text-break">{{ post.url }}</a>
                         </div>
                         
                         <div class="mb-4">
                             <h5>Status</h5>
-                            <span class="badge {% if result.status == 'success' %}bg-success{% elif result.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %}">
-                                {{ result.status }}
+                            <span class="badge {% if post.status == 'success' %}bg-success{% elif post.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %}">
+                                {{ post.status }}
                             </span>
                         </div>
 
-                        {% if result.error_message %}
+                        {% if post.error_message %}
                         <div class="mb-4">
                             <h5>Error Message</h5>
-                            <div class="alert alert-danger">{{ result.error_message }}</div>
+                            <div class="alert alert-danger">{{ post.error_message }}</div>
                         </div>
                         {% endif %}
 
-                        {% if tweets %}
+                        {% if parts %}
                         <div class="mb-4">
-                            <h5>Generated Tweets</h5>
-                            {% for tweet in tweets %}
+                            <h5>Generated parts</h5>
+                            {% for tweet in parts %}
                             <div class="card tweet-card mb-3">
                                 <div class="card-body">
                                     <div class="d-flex align-items-start">
@@ -61,7 +71,7 @@
                         {% endif %}
 
                         <div class="text-muted">
-                            <small>Created: {{ result.created_at_utc.strftime('%Y-%m-%d %H:%M:%S UTC') }}</small>
+                            <small>Created: {{ post.created_at_utc.strftime('%Y-%m-%d %H:%M:%S UTC') }}</small>
                         </div>
                     </div>
                 </div>

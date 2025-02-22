@@ -14,6 +14,16 @@
                     <h1 class="display-4">Blog Analysis Results</h1>
                     <p class="lead">{{ blog.url }}</p>
                 </div>
+                <!-- Flashes -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{% if category == 'error' %}danger{% else %}info{% endif %}">
+                                        {{ message }}
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
 
                 <!-- Blog Info Card -->
                 <div class="card mb-4">
@@ -80,7 +90,7 @@
                                         {{ comparison.short_summary if comparison.short_summary else '-' }}
                                     </td>
                                     <td>
-                                        <a href="{{ url_for('base.blog_comparison_detail', comparison_id=comparison.id) }}" 
+                                        <a href="{{ url_for('tmpl.action_profile', comparison_id=comparison.id) }}" 
                                            class="btn btn-sm btn-outline-secondary">
                                             <i class="bi bi-eye"></i> View
                                         </a>

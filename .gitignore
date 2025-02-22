@@ -2,11 +2,6 @@ __pycache__/
 *.pyc
 .env
 venv/
-.vscode/
-migrations
-instance
 alembic
-gunicorn
-gunicorn_dev
-tests
-traces
+infra/.env
+

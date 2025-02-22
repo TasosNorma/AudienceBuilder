@@ -4,36 +4,8 @@
     <title>URL Submit</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
-    <style>
-        body {
-            background: linear-gradient(135deg,#f5f7fa 0%, #c3cfe2 50% );
-            min-height: 100vh;
-        }
-        .form-card {
-       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-       border-radius: 10px;
-        }
-        .tweet-card {
-            border-left: 4px solid #1DA1F2; /* Twitter blue color */
-            background-color: #f8f9fa;
-        }
-        /* Loading spinner styles */
-        .loading-spinner {
-            display: none;
-            position: relative;
-            padding: 20px;
-            text-align: center;
-        }
-        /* Show spinner when form has 'loading' class */
-        form.loading .loading-spinner{
-            display: block;
-        }
-        /* Hide submit button when loading */
-        form.loading .submit-btn {
-            display: none;
-        }
-
-    </style>
+    <!-- Your custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 </head>
 <body>
     {% include 'sidebar.html' %}
@@ -59,7 +31,7 @@
                             <div class="spinner-border text-primary" role="status">
                                 <span class="visually-hidden"> Loading... </span>
                             </div>
-                            <p class="mt-3 text-muted">Generating your tweets... This might take a few seconds</p>
+                            <p class="mt-3 text-muted">Generating your parts... This might take a few seconds</p>
                         </div>
                     </form>
                 </div>
@@ -67,7 +39,7 @@
                 <div class="card results-card p-4">
                     <h2 class="h4 mb-4">Results</h2>
                     {% if result.status == "success" %}
-                        {% for tweet in result.tweets %}
+                        {% for tweet in result.parts %}
                             <div class="tweet-card card mb-3">
                                 <div class="d-flex align-items-start">
                                     <span class="badge bg-primary me-2">{{loop.index}}</span>
@@ -111,12 +83,12 @@
                                         </span>
                                     </td>
                                     <td class="text-truncate" style="max-width: 300px;">
-                                        {% if item.tweets %}
-                                            {{ item.tweets.split('","')[0][2:] }}
+                                        {% if item.parts %}
+                                            {{ item.parts.split('","')[0][2:] }}
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <a href="{{ url_for('base.processing_result', result_id=item.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <a href="{{ url_for('tmpl.post_profile', post_id=item.id) }}" class="btn btn-sm btn-outline-primary">
                                             <i class="bi bi-eye"></i> View
                                         </a>
                                     </td>
@@ -132,11 +104,7 @@
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        document.getElementById('urlForm').addEventListener('submit', function(e) {
-            this.classList.add('loading');
-        })
-    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
 

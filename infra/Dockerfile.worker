@@ -13,8 +13,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the application code
 COPY . .
 
+# Set PythonPath in order for python to know to look in tha app directory for importable modules.
+ENV PYTHONPATH="/app"
+
 # Ensure we use root user at runtime
 USER root
 
 # Command to run Celery worker
-CMD ["celery", "-A", "celery_worker", "worker", "--loglevel=info", "--concurrency=1", "--max-memory-per-child=400000"]
+CMD ["celery", "-A", "app.celery_worker.config:celery_app", "worker", "--loglevel=info", "--concurrency=1", "--max-memory-per-child=400000"]

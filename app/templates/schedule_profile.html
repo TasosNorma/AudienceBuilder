@@ -16,6 +16,16 @@
                         <a href="{{ schedule.url }}" target="_blank">{{ schedule.url }}</a>
                     </p>
                 </div>
+                <!-- Flashes -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{% if category == 'error' %}danger{% else %}info{% endif %}">
+                                        {{ message }}
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
 
                 <!-- Schedule Information Card -->
                 <div class="card mb-4">
@@ -80,7 +90,7 @@
                                             <td>{{ blog.number_of_articles }}</td>
                                             <td>{{ blog.number_of_fitting_articles }}</td>
                                             <td>
-                                                <a href="{{ url_for('base.blog_detail', blog_id=blog.id) }}" 
+                                                <a href="{{ url_for('tmpl.blog_profile', blog_id=blog.id) }}" 
                                                    class="btn btn-sm btn-primary">
                                                     <i class="bi bi-eye"></i> View
                                                 </a>
@@ -98,7 +108,7 @@
             </div>
         </div>
     </div>
-    <script src="{{ url_for('static', filename='js/schedule_detail.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/schedule.js') }}"></script>
     <script>window.csrfToken = "{{ csrf_token() }}"</script>
 </body>
 </html>

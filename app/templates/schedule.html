@@ -4,28 +4,7 @@
     <title>Schedule URL Processing</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
-    <style>
-        body {
-            background: linear-gradient(135deg,#f5f7fa 0%, #c3cfe2 50% );
-            min-height: 100vh;
-        }
-        .form-card {
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            border-radius: 10px;
-        }
-        .loading-spinner {
-            display: none;
-            position: relative;
-            padding: 20px;
-            text-align: center;
-        }
-        form.loading .loading-spinner{
-            display: block;
-        }
-        form.loading .submit-btn {
-            display: none;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 </head>
 <body>
     {% include 'sidebar.html' %}
@@ -36,6 +15,16 @@
                     <h1 class="display-4 fw-bold">Schedule URL Processing</h1>
                     <p class="lead text-muted">Set up recurring URL processing tasks</p>
                 </div>
+                <!-- Flashes -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{% if category == 'error' %}danger{% else %}info{% endif %}">
+                                        {{ message }}
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
                 
                 <div class="card form-card p-4 mb-4">
                     <form method="POST" id="urlForm">
@@ -70,12 +59,6 @@
                         </div>
                     </form>
                 </div>
-
-                {% if result %}
-                <div class="alert alert-{{ 'success' if result.status == 'success' else 'danger' }} mb-4">
-                    {{ result.message }}
-                </div>
-                {% endif %}
                 {% if schedules %}
                 <div class="card form-card p-4 mt-4">
                     <h3>Your Scheduled Tasks</h3>
@@ -104,7 +87,7 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <a href="{{ url_for('base.schedule_profile', schedule_id=schedule.id) }}" class="btn btn-sm btn-primary me-2">
+                                        <a href="{{ url_for('tmpl.schedule_profile', schedule_id=schedule.id) }}" class="btn btn-sm btn-primary me-2">
                                                 <i class="bi bi-eye"></i> View
                                         </a>
                                     </td>
@@ -119,5 +102,6 @@
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

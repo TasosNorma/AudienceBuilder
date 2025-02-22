@@ -71,10 +71,10 @@ class ArticleCrawler:
                 return article
             except Exception as e:
                 print(f"Error formatting article content: {str(e)}")
-                return f"Error: Failed to format extracted content. Reason: {str(e)}"
+                raise e
         except Exception as e:
             print(f"Unexpected error processing article: {str(e)}")
-            return f"Error: Unexpected error while processing {url}"
+            raise e
 
     async def write_small_summary(self, url: str):
         async with AsyncWebCrawler(verbose=False, log_level=logging.ERROR, silent=True) as crawler:
@@ -123,13 +123,13 @@ class ArticleCrawler:
                     return summary.strip()
                 except json.JSONDecodeError as e:
                     logging.error(f"Failed to parse JSON from extracted content: {str(e)}")
-                    return None
+                    raise e
                 except Exception as e:
                     logging.error(f"Error formatting summary: {str(e)}")
-                    return None
+                    raise e 
             except Exception as e:
                 logging.error(f"Error extracting summary from {url}: {str(e)}")
-                return None
+                raise e
         
     async def extract_all_articles_from_page(self, url: str):
         async with AsyncWebCrawler(verbose=False, log_level=logging.ERROR) as crawler:
@@ -217,4 +217,4 @@ Return only the JSON array, nothing else.""",
                 
             except Exception as e:
                 logging.error(f"Error processing response: {str(e)}")
-                return {"error": str(e)}
+                raise e

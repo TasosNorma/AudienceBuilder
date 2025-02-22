@@ -15,10 +15,6 @@ class SetupProfileForm(FlaskForm):
     full_name = StringField('Name',validators=[DataRequired()])
     interests_description = TextAreaField('Interests Description', validators=[DataRequired()])
     openai_api_key = TextAreaField('Open AI API key')
-    phone_number = StringField('Phone Number', validators=[
-        Optional(),
-        Regexp(r'^\+[1-9]\d{1,14}$', message='Phone number must start with + and country code')
-    ])
     submit = SubmitField('Save Changes')
 
 class ArticleCompareForm(FlaskForm):
@@ -44,10 +40,6 @@ class RegistrationForm(FlaskForm):
 
 class SettingsForm(FlaskForm):
     openai_api_key = StringField('OpenAI API Key', validators=[DataRequired()])
-    phone_number = StringField('Phone Number', validators=[
-        Optional(),
-        Regexp(r'^\+[1-9]\d{1,14}$', message='Phone number must start with + and country code')
-    ])
     submit = SubmitField('Update Settings')
 
 class ScheduleForm(FlaskForm):

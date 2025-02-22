@@ -14,6 +14,16 @@
                     <h1 class="display-4">Pending Actions</h1>
                     <p class="lead">Review and take action on relevant comparisons</p>
                 </div>
+                <!-- Flashes -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{% if category == 'error' %}danger{% else %}info{% endif %}">
+                                        {{ message }}
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
 
                 <!-- Filter Form -->
                 <div class="card mb-4">
@@ -36,7 +46,7 @@
                                 </div>
                             </div>
                             <button type="submit" class="btn btn-primary">Apply Filters</button>
-                            <a href="{{ url_for('base.actions') }}" class="btn btn-secondary">Clear Filters</a>
+                            <a href="{{ url_for('tmpl.actions') }}" class="btn btn-secondary">Clear Filters</a>
                         </form>
                     </div>
                 </div>
@@ -59,11 +69,11 @@
                                     <tr>
                                         <td>{{ comparison.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                                         <td>
-                                            <span class="badge {% if comparison.whatsapp_status == 'Posted' %}bg-success
-                                                             {% elif comparison.whatsapp_status == 'Drafted Post' %}bg-info
-                                                             {% elif comparison.whatsapp_status == 'Notified User' %}bg-warning
+                                            <span class="badge {% if comparison.status == 'Posted' %}bg-success
+                                                             {% elif comparison.status == 'Action Pending to Post' %}bg-info
+                                                             {% elif comparison.status == 'Action Pending to Draft' %}bg-warning
                                                              {% else %}bg-secondary{% endif %}">
-                                                {{ comparison.whatsapp_status }}
+                                                {{ comparison.status }}
                                             </span>
                                         </td>
                                         <td>
@@ -72,7 +82,7 @@
                                             </a>
                                         </td>
                                         <td>
-                                            <a href="{{ url_for('base.blog_comparison_detail', comparison_id=comparison.id) }}" class="btn btn-sm btn-primary">
+                                            <a href="{{ url_for('tmpl.action_profile', comparison_id=comparison.id) }}" class="btn btn-sm btn-primary">
                                                 <i class="bi bi-eye"></i> View Details
                                             </a>
                                         </td>

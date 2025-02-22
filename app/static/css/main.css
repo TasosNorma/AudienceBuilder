@@ -1,0 +1,30 @@
+body {
+    background: linear-gradient(135deg,#f5f7fa 0%, #c3cfe2 50% );
+    min-height: 100vh;
+}
+
+.form-card {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+}
+
+.loading-spinner {
+    display: none;
+    position: relative;
+    padding: 20px;
+    text-align: center;
+}
+
+form.loading .loading-spinner {
+    display: block;
+}
+
+form.loading .submit-btn {
+    display: none;
+}
+
+/* Posts page specific styles */
+.tweet-card {
+    border-left: 4px solid #1DA1F2;
+    background-color: #f8f9fa;
+}

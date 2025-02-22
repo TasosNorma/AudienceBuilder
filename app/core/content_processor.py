@@ -2,13 +2,13 @@ from langchain_openai import ChatOpenAI
 import os
 from typing import Dict, Optional
 from app.database.database import *
-from app.database.models import Profile
+from app.database.models import Profile,ProfileComparison
 from langchain.prompts import PromptTemplate
 from .crawl4ai import ArticleCrawler
 import asyncio
 import logging
-from app.api.prompt_operations import get_prompt
 from cryptography.fernet import Fernet
+from app.core.helper_handlers import Prompt_Handler
 
 # This class is the Synchronous content processor
 class SyncAsyncContentProcessor:
@@ -37,18 +37,18 @@ class SyncAsyncContentProcessor:
 
     # This method creates a chain with the proper chain template so that we can insert the primary and secondary articles.
     def setup_chain(self):
-        self.prompt = get_prompt(1,self.user.id)
+        self.prompt = Prompt_Handler.get_prompt_template(1,self.user.id)
         self.prompt_template = PromptTemplate(template=self.prompt,input_variables=["primary","secondary"])
         self.post_chain = self.prompt_template | self.llm
 
-    # This method takes the string of the final post and breaks it down to sub-tweets.
+    # This method takes the string of the final post and breaks it down to sub-parts.
     @staticmethod
-    def _parse_tweets(social_post: str) -> list:
+    def _parse_parts(social_post: str) -> list:
         content = social_post.content if hasattr(social_post, 'content') else social_post
         return [tweet.strip() for tweet in content.split('\n\n') 
                 if tweet.strip() and not tweet.isspace()]
 
-    # This method takes one URL and returns a dictionary that inside has the list of tweets.
+    # This method takes one URL and returns a dictionary that inside has the list of parts.
     def process_url(self, url:str) -> Optional[Dict]:
         try:
             # Get the article
@@ -84,15 +84,15 @@ class SyncAsyncContentProcessor:
                 raise
 
             try:
-                self.tweets = self._parse_tweets(self.result)
+                self.parts = self._parse_parts(self.result)
             except Exception as e:
-                print(f"Error parsing tweets: {str(e)}")
+                print(f"Error parsing parts: {str(e)}")
                 raise
 
             self.result = {
                 "status": "success",
-                "tweets": self.tweets,
-                "tweet_count": len(self.tweets),
+                "parts": self.parts,
+                "part_count": len(self.parts),
                 "url": url
             }
             return self.result
@@ -103,28 +103,11 @@ class SyncAsyncContentProcessor:
             "url": url
             }
     
-    # This method takes a url and it judges whether it is relevant to the user or not.
-    def is_article_relevant(self, url:str) -> bool:
-        db = SessionLocal()
+
+    def is_article_relevant_for_profile_comparison(self, profile_description:str, summary:str) -> bool:
         try:
-            # Get user's profile description from database
-            profile_description = db.query(Profile).filter(
-                Profile.user_id == self.user.id
-            ).first().interests_description
-            
-            # Get article summary
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                summary = loop.run_until_complete(self.crawler.write_small_summary(url))
-            except Exception as e:
-                print(f"Error getting article summary: {str(e)}")
-                raise
-            finally:
-                loop.close()
-            
             # Setup the chain
-            profile_prompt = get_prompt(2,self.user.id)
+            profile_prompt = Prompt_Handler.get_prompt_template(2,self.user.id)
             profile_template = PromptTemplate(
                 template=profile_prompt,
                 input_variables=["profile","article"]
@@ -138,19 +121,13 @@ class SyncAsyncContentProcessor:
             })
 
             # Parse result - should be just "Yes" or "No"
-            print(result)
             return result.content.strip().lower() == "yes"
-
         except Exception as e:
-            print(f"Error checking article relevance: {str(e)}")
-            return False
-        finally:
-            db.close()
+            raise e
     
     # This method takes a short summary and compares relevance to the profile 
     def is_article_relevant_short_summary(self, short_summary:str) -> bool:
-        db = SessionLocal()
-        try:
+        with SessionLocal() as db:
             # Get user's profile description from database
             profile_description = db.query(Profile).filter(
                 Profile.user_id == self.user.id
@@ -161,7 +138,7 @@ class SyncAsyncContentProcessor:
             asyncio.set_event_loop(loop)
 
             # Setup the chain
-            profile_prompt = get_prompt(2,self.user.id)
+            profile_prompt = Prompt_Handler.get_prompt_template(2,self.user.id)
             profile_template = PromptTemplate(
                 template=profile_prompt,
                 input_variables=["profile","article"]
@@ -175,14 +152,7 @@ class SyncAsyncContentProcessor:
             })
 
             # Parse result - should be just "Yes" or "No"
-            print(result)
             return result.content.strip().lower() == "yes"
-
-        except Exception as e:
-            print(f"Error checking article relevance: {str(e)}")
-            return False
-        finally:
-            db.close()
 
 
         
