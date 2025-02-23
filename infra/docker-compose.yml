@@ -3,8 +3,8 @@ version: '3.8'
 services:
   flask-app:
     build:
-      context: .
-      dockerfile: Dockerfile.flask
+      context: ..
+      dockerfile: infra/Dockerfile.flask
     ports:
       - "10000:10000"
     environment:
@@ -29,7 +29,7 @@ services:
 
   celery-worker:
     build:
-      context: .
+      context: ..
       dockerfile: infra/Dockerfile.worker
     command: celery -A celery_worker worker --loglevel=info --concurrency=1 --max-memory-per-child=400000
     environment:
@@ -54,7 +54,7 @@ services:
 
   celery-beat:
     build:
-      context: .
+      context: ..
       dockerfile: infra/Dockerfile.worker
     command: celery -A celery_worker beat --loglevel=info 
     environment:

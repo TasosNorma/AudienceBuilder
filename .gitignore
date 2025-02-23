@@ -4,4 +4,4 @@ __pycache__/
 venv/
 alembic
 infra/.env
-
+infra/docker-compose.local.yml
