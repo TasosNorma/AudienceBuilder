@@ -31,7 +31,7 @@ services:
     build:
       context: ..
       dockerfile: infra/Dockerfile.worker
-    command: celery -A celery_worker worker --loglevel=info --concurrency=1 --max-memory-per-child=400000
+    command: celery -A app.celery_worker.config:celery_app worker --loglevel=info --concurrency=1 --max-memory-per-child=400000
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
@@ -56,7 +56,7 @@ services:
     build:
       context: ..
       dockerfile: infra/Dockerfile.worker
-    command: celery -A celery_worker beat --loglevel=info 
+    command: celery -A app.celery_worker.config:celery_app beat --loglevel=info 
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
