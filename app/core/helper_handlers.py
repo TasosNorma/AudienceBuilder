@@ -40,7 +40,7 @@ class Schedule_Handler:
             interval_task = PeriodicTask(
                 schedule_model=interval_schedule,
                 name=task_name,
-                task='celery_worker.tasks.blog_analyse',
+                task='app.celery_worker.tasks.blog_analyse',
                 args=json.dumps([url, self.user_id, schedule.id]),
                 kwargs=json.dumps({}),
                 description='Scheduled URL processing task'

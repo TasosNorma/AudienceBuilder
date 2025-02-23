@@ -70,7 +70,7 @@
                                         <a href="{{ blog.url }}" target="_blank">{{ blog.url }}</a>
                                     </td>
                                     <td>
-                                        <span class="badge {% if blog.status == 'completed' %}bg-success{% elif blog.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %}">
+                                        <span class="badge {% if blog.status == 'Completed' %}bg-success{% elif blog.status == 'Processing' %}bg-warning{% else %}bg-danger{% endif %}">
                                             {{ blog.status }}
                                         </span>
                                     </td>

@@ -42,7 +42,7 @@
                         
                         <div class="mb-4">
                             <h5>Status</h5>
-                            <span class="badge {% if post.status == 'success' %}bg-success{% elif post.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %}">
+                            <span class="badge {% if post.status == 'Generated' %}bg-success{% elif post.status == 'Processing' %}bg-warning{% else %}bg-danger{% endif %}">
                                 {{ post.status }}
                             </span>
                         </div>

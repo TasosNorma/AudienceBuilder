@@ -81,8 +81,8 @@
                                         <tr>
                                             <td>{{ blog.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
                                             <td>
-                                                <span class="badge {% if blog.status == 'completed' %}bg-success
-                                                                 {% elif blog.status == 'failed' %}bg-danger
+                                                <span class="badge {% if blog.status == 'Completed' %}bg-success
+                                                                 {% elif blog.status == 'Failed' %}bg-danger
                                                                  {% else %}bg-warning{% endif %}">
                                                     {{ blog.status }}
                                                 </span>

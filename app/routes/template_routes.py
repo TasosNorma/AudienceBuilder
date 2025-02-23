@@ -218,9 +218,8 @@ def profile():
     with SessionLocal() as db:
         try:
             profile = db.query(Profile).filter_by(user_id=current_user.id).first()
-            form.interests_description.data = profile.interests_description
+            form = ProfileForm(obj=profile)
             if form.validate_on_submit():
-                profile = db.query(Profile).filter_by(user_id=current_user.id).first()
                 profile.interests_description = form.interests_description.data
                 db.commit()
                 logging.info(f"Successfully updated profile interests for user {current_user.id}")
@@ -389,7 +388,8 @@ def blog_profile(blog_id):
         
         comparisons = db.query(BlogProfileComparison)\
             .filter_by(blog_id=blog_id)\
-            .order_by(BlogProfileComparison.created_at.desc())\
+            .order_by(BlogProfileComparison.comparison_result.desc().nullslast(),  # True values first, then False, then nulls
+                     BlogProfileComparison.created_at.desc())\
             .all()
         
         return render_template('blog_profile.html', blog=blog, comparisons=comparisons)

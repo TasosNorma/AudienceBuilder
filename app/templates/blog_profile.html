@@ -32,7 +32,7 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <p><strong>Status:</strong> 
-                                    <span class="badge {% if blog.status == 'completed' %}bg-success{% elif blog.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %}">
+                                    <span class="badge {% if blog.status == 'Completed' %}bg-success{% elif blog.status == 'Processing' %}bg-warning{% else %}bg-danger{% endif %}">
                                         {{ blog.status }}
                                     </span>
                                 </p>
@@ -82,7 +82,9 @@
                                         <a href="{{ comparison.url }}" target="_blank">{{ comparison.url }}</a>
                                     </td>
                                     <td>
-                                        <span class="badge {% if comparison.status == 'completed' %}bg-success{% elif comparison.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %}">
+                                        <span class="badge {% if comparison.status == 'Action Pending to Draft' or comparison.status == 'Action Pending to Post' or comparison.status == 'Posted' %}bg-success
+                                        {% elif comparison.status == 'Comparing' or comparison.status == 'Drafting' %}bg-warning
+                                        {% else %}bg-danger{% endif %}">
                                             {{ comparison.status }}
                                         </span>
                                     </td>
