@@ -1,4 +1,4 @@
-from flask import render_template, Blueprint, redirect, flash, url_for, request
+from flask import render_template, Blueprint, redirect, flash, url_for, request, session
 from flask_login import login_required, current_user, login_user, logout_user
 import os
 from ..core.forms import UrlSubmit, PromptForm, SetupProfileForm,SettingsForm, ScheduleForm,ProfileForm, ArticleCompareForm, LoginForm, RegistrationForm
@@ -6,10 +6,14 @@ from ..database.database import SessionLocal
 from ..database.models import Prompt, Profile, User, Post,Schedule, Blog, BlogProfileComparison,ProfileComparison
 import logging
 from cryptography.fernet import Fernet
-from ..core.helper_handlers import Schedule_Handler,Post_Handler, User_Handler
+from ..core.helper_handlers import Schedule_Handler,Post_Handler, User_Handler, LinkedIn_Auth_Handler
 from flask_wtf.csrf import generate_csrf
 from time import sleep
+from urllib.parse import urlencode
 from app.celery_worker.tasks import compare_profile_task, blog_analyse,generate_post
+import secrets
+
+
 tmpl = Blueprint('tmpl', __name__)
 fernet = Fernet(os.environ['ENCRYPTION_KEY'].encode())
 
@@ -424,3 +428,55 @@ def settings():
     
     db.close()
     return render_template('settings.html', form=form)
+
+@tmpl.route('/linkedin/auth',methods=['GET'])
+@login_required
+def linkedin_auth():
+    try:
+        state = secrets.token_hex(16)
+        # Store the state in the session
+        session['linkedin_state'] = state
+        params = {
+            'response_type': 'code',
+            'client_id': os.environ['LINKEDIN_CLIENT_ID'],
+            'redirect_uri': os.environ['LINKEDIN_CALLBACK_URL'],
+            'state': state,
+            'scope': 'w_member_social'
+        }
+        
+        authorization_url = f"https://www.linkedin.com/oauth/v2/authorization?{urlencode(params)}"
+        return redirect(authorization_url)
+    except Exception as e:
+        logging.error(f"Error during LinkedIn auth: {str(e)}")
+        flash(f"LinkedIn authentication failed: {str(e)}", "error")
+        return redirect(url_for('tmpl.settings'))
+    
+@tmpl.route('/linkedin/callback')
+@login_required
+def linkedin_callback():
+    try:
+        code = request.args.get('code')
+        state = request.args.get('state')
+        
+        # Verify the state to prevent CSRF attacks
+        if state != session.get('linkedin_state'):
+            flash('LinkedIn authentication failed: Invalid state parameter', 'danger')
+            return redirect(url_for('tmpl.settings'))
+        
+        # Clear the state from the session
+        session.pop('linkedin_state', None)
+
+        # If the user denied access or there was an error
+        if 'error' in request.args:
+            error_description = request.args.get('error_description', 'Unknown error')
+            flash(f'LinkedIn authentication failed: {error_description}', 'danger')
+            return redirect(url_for('tmpl.settings'))
+        
+        # Handle the callback
+        linkedin_auth = LinkedIn_Auth_Handler()
+        linkedin_auth.handle_callback(code, current_user.id)
+        return redirect(url_for('tmpl.settings'))
+    except Exception as e:
+        logging.error(f"Error during LinkedIn callback: {str(e)}")
+        flash(f"LinkedIn authentication failed: {str(e)}", "error")
+        return redirect(url_for('tmpl.settings'))

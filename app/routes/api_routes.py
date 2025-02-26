@@ -3,8 +3,11 @@ from flask_login import login_required, current_user
 from ..database.database import SessionLocal
 from ..database.models import BlogProfileComparison,Post
 import logging
+import os
+import secrets
 from ..core.helper_handlers import Schedule_Handler, Blog_Profile_Comparison_Handler
 from ..celery_worker.tasks import generate_post_from_comparison
+
 
 api = Blueprint('api',__name__)
 
@@ -88,4 +91,4 @@ def ignore_draft_comparison(comparison_id):
             "message": str(e)
         })
 
-        
+

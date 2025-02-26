@@ -53,6 +53,13 @@ class User(Base,UserMixin):
     openai_api_key = Column(String(1024), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_onboarded = Column(Boolean,default=False,nullable=True)
+    # LinkedIn Authentication Fields
+    linkedin_access_token = Column(String(1024), nullable=True)
+    linkedin_access_token_expires_in = Column(Integer, nullable=True)
+    linkedin_refresh_token = Column(String(1024), nullable=True)
+    linkedin_refresh_token_expires_in = Column(Integer, nullable=True)
+    linkedin_scope = Column(String(255), nullable=True)
+    linkedin_connected = Column(Boolean, default=False)
         
     def set_password(self, password, method='pbkdf2:sha256'):
         self.password_hash = generate_password_hash(password, method=method)

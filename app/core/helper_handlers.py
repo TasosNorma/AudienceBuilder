@@ -6,6 +6,9 @@ from sqlalchemy_celery_beat.session import SessionManager
 import logging
 from datetime import datetime
 import json
+import os
+import requests
+from cryptography.fernet import Fernet
 
 class Schedule_Handler:
     def __init__(self,user_id: int) -> None:
@@ -258,3 +261,41 @@ class Prompt_Handler:
                     raise ValueError(f"No prompt found for type {prompt_type} and user {user_id}")
             except Exception as e:
                 raise e
+            
+
+class LinkedIn_Auth_Handler:
+    def __init__(self) -> None:
+        self.client_id = os.environ.get('LINKEDIN_CLIENT_ID')
+        self.client_secret = os.environ.get('LINKEDIN_CLIENT_SECRET')
+        self.redirect_uri = os.environ.get('LINKEDIN_CALLBACK_URL')
+        self.fernet = Fernet(os.environ.get('ENCRYPTION_KEY').encode())
+
+    def handle_callback(self, code, user_id):
+        try:
+            # Exchange the authorization code for an access token
+            token_url = "https://www.linkedin.com/oauth/v2/accessToken"
+            payload = {
+                'grant_type': 'authorization_code',
+                'code': code,
+                'client_id': self.client_id,
+                'client_secret': self.client_secret,
+                'redirect_uri': self.redirect_uri
+            }
+            response = requests.post(token_url, data=payload)
+            if response.status_code != 200:
+                logging.error(f"LinkedIn token exchange failed: {response.text}")
+                return False
+            
+            token_data = response.json()
+            # Store the tokens in the database
+            with SessionLocal() as db:
+                user = db.query(User).filter(User.id == user_id).first()
+                user.linkedin_access_token = self.fernet.encrypt(token_data['access_token'].encode()).decode()
+                user.linkedin_access_token_expires_in = token_data['expires_in']
+                user.linkedin_refresh_token = self.fernet.encrypt(token_data.get('refresh_token', 'Not included in response').encode()).decode()
+                user.linkedin_refresh_token_expires_in = token_data.get('refresh_token_expires_in', 0)
+                user.linkedin_scope = token_data['scope']
+                user.linkedin_connected = True
+                db.commit()
+        except Exception as e:
+            raise e
