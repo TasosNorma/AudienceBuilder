@@ -61,6 +61,12 @@
                             <i class="bi bi-check-circle-fill me-2"></i>
                             Your LinkedIn account is connected
                         </div>
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('tmpl.linkedin_disconnect') }}" class="btn btn-outline-danger">
+                                <i class="bi bi-linkedin me-2"></i>
+                                Disconnect LinkedIn Account
+                            </a>
+                        </div>
                     {% else %}
                         <div class="alert alert-info">
                             <i class="bi bi-info-circle-fill me-2"></i>

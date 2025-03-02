@@ -169,55 +169,31 @@ class User_Handler:
                     is_active=True
                 )
                 default_prompt_1 = Prompt(
-                    name = Prompt.NAME_NORMALPOSTGENERATIONPROMPT,
+                    name = Prompt.NAME_LINKEDININFORMATIVEPOSTGENERATOR,
                     type=Prompt.TYPE_POSTGENERATING,
-                    description = 'Generates viral post from article content',
+                    description = 'Generates an informative post for LinkedIn',
                     user_id = user_id,
                     template = """
-            You are a professional Twitter writer who focuses on business, data analytics, AI, and related news. Your goal is to craft engaging Twitter threads that attract and inform your audience, ultimately building a following for future entrepreneurial ventures.
+            You are a professional linkedin post writer who is given articles from the web and is tasked to write nice engaging and informative linkedin posts about the contents of the articles. In your draft, you should:
 
-            **Thread Structure & Guidelines:**
-
-            1. **Hook (First Tweet):**
-                - **Purpose:** Grab attention and entice readers. Make them understand it's about news and not personal opinions.
-                - **Content:** Start with a bold statement or a compelling question related to the main topic. Be objective and highlight the key value proposition or benefit.
-                - **Length:** Keep under 280 characters.
-                - **Style:** Use concise and impactful language.
-            2. **Body (Middle parts):**
-                - **Purpose:** Deliver key information and insights.
-                - **Content:** Break down the main points from the articles into digestible pieces. Incorporate relevant data, quotes, or statistics to add value.
-                - **Flow:** Ensure a natural progression between parts for readability.
-                - **Length:** Each tweet should be under 280 characters.
-                - **Style:** Maintain clear and readable sentences.
-            3. **Call-to-Action (Final Tweet):**
-                - **Purpose:** Drive engagement.
-                - **Content:** Include a clear directive that encourages interaction, such as asking for thoughts or suggesting to follow for more insights.
-                - **Alignment:** Make sure it aligns with the thread's content.
-                - **Length:** Under 280 characters.
-
-            **Additional Guidelines:**
-
-            - **Tone:** Maintain a professional and informative voice while staying approachable. Focus on factual news reporting rather than sensationalism, particularly in the opening tweet.
-            - **Audience Focus:** Tailor content to professionals interested in business, data analytics, and AI.
-            - **Language:** Avoid jargon; keep it accessible to a broad audience.
-            - **Originality:** While summarizing the articles, ensure the content is original and offers a unique perspective. 
-            - **Facts-Based:** Don't comment with opinions, focus mainly on the facts that you can find in the articles. 
+            1. Start with a compelling hook, begin with an attention grabbing yet relevant and smart opening line.
+            2. You're just reporting on news so sound very objective and don’t promote anything
+                1. Avoid Jargon keep it as professional as possible. 
+                2. Don't comment on opinions, focus mainly on facts 
+            3. Try to be as simple as possible
+            4. Incorporate emojis into your post
+            5. Craft compelling headline
+            6. Be up to 250 words
+            7. Add 5-10 relevant hashtags
+            8. Add bullet points to structure the post
             ### Suffix_     
 
-            You will be provided with one main article and additional secondary articles. The secondary articles are links referenced in the primary article.
-            Your task is to write a compelling Twitter thread about the main article, enriching it with insights and context from the secondary articles. The thread should be informative, engaging, and encourage audience interaction.
-
             ** Primary Article **
-            This is the primary article:
-            {primary}
-
-
-            ** Secondary Articles **
-            These are the secondary articles.
-            {secondary}
+            This is the article:
+            {article}
 
             """,
-                input_variables='["primary", "secondary"]',
+                input_variables='["article"]',
                 is_active=True
                 )
                 db.add(default_prompt_2)
@@ -248,21 +224,20 @@ class Prompt_Handler:
         self.user_id = user_id
     
     @classmethod
-    def get_prompt_template(cls,prompt_type: int, user_id: int):
+    def get_prompt_template(cls,prompt_name: str, user_id: int):
         with SessionLocal() as db:
             try:
                 prompt = db.query(Prompt).filter(
-                    Prompt.type == prompt_type, 
+                    Prompt.name == prompt_name, 
                     Prompt.user_id == user_id
                 ).first()
                 if prompt:
                     return prompt.template
                 else:
-                    raise ValueError(f"No prompt found for type {prompt_type} and user {user_id}")
+                    raise ValueError(f"No prompt found for type {prompt_name} and user {user_id}")
             except Exception as e:
                 raise e
-            
-
+        
 class LinkedIn_Auth_Handler:
     def __init__(self) -> None:
         self.client_id = os.environ.get('LINKEDIN_CLIENT_ID')
@@ -299,3 +274,75 @@ class LinkedIn_Auth_Handler:
                 db.commit()
         except Exception as e:
             raise e
+        
+class LinkedIn_Client_Handler:
+    def __init__(self, user_id :int) -> None:
+        try:
+            self.user_id = user_id
+            self.fernet = Fernet(os.environ.get('ENCRYPTION_KEY').encode())
+            with SessionLocal() as db:
+                user = db.query(User).filter(User.id == user_id).first()
+                if not user or not user.linkedin_connected or not user.linkedin_access_token:
+                    raise ValueError("User not connected to LinkedIn or missing access token")
+                self.access_token = self.fernet.decrypt(user.linkedin_access_token.encode()).decode()
+            self.headers = {
+                'Authorization': f'Bearer {self.access_token}',
+                'Content-Type': 'application/json',
+                'X-Restli-Protocol-Version': '2.0.0',
+                'LinkedIn-Version':'202502'
+            }
+            self.profile = self.get_profile()
+        except Exception as e:
+            raise e
+    
+
+    def get_profile(self):
+        try:
+            url = "https://api.linkedin.com/v2/userinfo"
+            response = requests.get(url, headers=self.headers)
+            if response.status_code != 200:
+                logging.error(f"Failed to get LinkedIn profile: {response.status_code} {response.text}")
+                raise Exception(f"LinkedIn API error: {response.status_code}")
+            profile_data = response.json()
+            return profile_data
+        except Exception as e:
+            logging.error(f"Error getting LinkedIn profile: {str(e)}")
+            raise e
+
+    def post (self, text:str):
+        try:
+            profile_id = self.profile.get('sub')
+            person_urn = f"urn:li:person:{profile_id}"
+            post_url = "https://api.linkedin.com/rest/posts"
+            
+            payload = {
+                "author": person_urn,
+                "commentary": text,
+                "visibility": "PUBLIC",
+                "distribution": {
+                    "feedDistribution": "MAIN_FEED",
+                    "targetEntities": [],
+                    "thirdPartyDistributionChannels": []
+                },
+                "lifecycleState": "PUBLISHED",
+                "isReshareDisabledByAuthor": False
+            }
+            response = requests.post(post_url, headers=self.headers, json=payload)
+            if response.status_code not in [200, 201]:
+                logging.error(f"Failed to post to LinkedIn: {response.status_code} {response.text}")
+                raise Exception(f"LinkedIn API error: {response.status_code}")
+        
+        except Exception as e:
+            logging.error(f"Error posting to LinkedIn: {str(e)}")
+            raise e
+        
+# if __name__ == "__main__":
+#     try:
+#         # Example usage
+#         linkedin = LinkedIn_Client_Handler(26) 
+#         linkedin.post("Test post from LinkedIn API integration")
+#         print("Successfully posted to LinkedIn")
+#     except Exception as e:
+#         print(f"Failed to post: {str(e)}")
+
+

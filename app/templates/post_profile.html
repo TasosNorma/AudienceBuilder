@@ -54,19 +54,16 @@
                         </div>
                         {% endif %}
 
-                        {% if parts %}
+                        {% if post.text %}
                         <div class="mb-4">
-                            <h5>Generated parts</h5>
-                            {% for tweet in parts %}
+                            <h5>Generated Text</h5>
                             <div class="card tweet-card mb-3">
                                 <div class="card-body">
                                     <div class="d-flex align-items-start">
-                                        <span class="badge bg-primary me-2">{{loop.index}}</span>
-                                        <p class="card-text mb-0">{{ tweet }}</p>
+                                        <p class="card-text mb-0">{{ post.text }}</p>
                                     </div>
                                 </div>
                             </div>
-                            {% endfor %}
                         </div>
                         {% endif %}
 

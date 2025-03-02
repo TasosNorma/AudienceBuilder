@@ -2,7 +2,7 @@ from langchain_openai import ChatOpenAI
 import os
 from typing import Dict, Optional
 from app.database.database import *
-from app.database.models import Profile,ProfileComparison
+from app.database.models import Profile,ProfileComparison,Prompt
 from langchain.prompts import PromptTemplate
 from .crawl4ai import ArticleCrawler
 import asyncio
@@ -23,9 +23,6 @@ class SyncAsyncContentProcessor:
                 
             self.decripted_api_key = fernet.decrypt(user.openai_api_key).decode()
             
-            logging.info(f"Setting up LLM for user {user.id}...")
-            self.llm = ChatOpenAI(openai_api_key=self.decripted_api_key, model_name='gpt-4o-mini')
-            
             logging.info("Setting up crawler...")
             self.crawler = ArticleCrawler(self.decripted_api_key)
             
@@ -33,81 +30,46 @@ class SyncAsyncContentProcessor:
             
         except Exception as e:
             logging.error(f"Error during SyncAsyncContentProcessor initialization: {str(e)}")
-            raise
+            raise e
 
-    # This method creates a chain with the proper chain template so that we can insert the primary and secondary articles.
-    def setup_chain(self):
-        self.prompt = Prompt_Handler.get_prompt_template(1,self.user.id)
-        self.prompt_template = PromptTemplate(template=self.prompt,input_variables=["primary","secondary"])
-        self.post_chain = self.prompt_template | self.llm
-
-    # This method takes the string of the final post and breaks it down to sub-parts.
-    @staticmethod
-    def _parse_parts(social_post: str) -> list:
-        content = social_post.content if hasattr(social_post, 'content') else social_post
-        return [tweet.strip() for tweet in content.split('\n\n') 
-                if tweet.strip() and not tweet.isspace()]
+    # This method takes prompt and model name and creates the chain to be invoked.
+    def setup_chain(self,prompt_name:str,openai_llm_model_name:str):
+        try:
+            with SessionLocal() as db:
+                self.prompt = db.query(Prompt).filter(
+                    Prompt.name == prompt_name,
+                    Prompt.user_id == self.user.id
+                ).first()
+            self.prompt_template = PromptTemplate(
+                template=self.prompt.template,
+                input_variables=self.prompt.input_variables
+                )
+            self.llm = ChatOpenAI(openai_api_key=self.decripted_api_key, model_name=openai_llm_model_name)
+            self.post_chain = self.prompt_template | self.llm
+        except Exception as e:
+            logging.error(f"Error setting up chain: {str(e)}")
+            raise e
 
     # This method takes one URL and returns a dictionary that inside has the list of parts.
-    def process_url(self, url:str) -> Optional[Dict]:
+    def generate_linkedin_informative_post_from_url(self, url:str):
         try:
-            # Get the article
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    self.article = loop.run_until_complete(self.crawler.extract_article_content(url))
-                except Exception as e:
-                    print(f"Error getting the article content with async operation.{str(e)}")
-            except Exception as e:
-                print(f"Error extracting article content: {str(e)}")
-                raise
-            finally:
-                loop.close()
-            # Setup the chain
-            try:
-                print('Setting up the chains')
-                self.setup_chain()
-            except Exception as e:
-                print(f'Error setting up the chains : {str(e)}')
-                raise
-
-            # Setting Secondary articles to None for now
-            self.secondary_articles = "None"
-            try:
-                self.result = self.post_chain.invoke({
-                    "primary": self.article,
-                    "secondary": self.secondary_articles
-                })
-            except Exception as e:
-                print(f"Error invoking post chain: {str(e)}")
-                raise
-
-            try:
-                self.parts = self._parse_parts(self.result)
-            except Exception as e:
-                print(f"Error parsing parts: {str(e)}")
-                raise
-
-            self.result = {
-                "status": "success",
-                "parts": self.parts,
-                "part_count": len(self.parts),
-                "url": url
-            }
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            self.article = loop.run_until_complete(self.crawler.extract_article_content(url))
+            loop.close()
+            
+            self.setup_chain(Prompt.NAME_LINKEDININFORMATIVEPOSTGENERATOR,'gpt-4o')
+            self.result = self.post_chain.invoke({"article": self.article}).content
+            
             return self.result
         except Exception as e:
-            return {
-            "status": "error",
-            "message": f"An error occurred: {str(e)}",
-            "url": url
-            }
+            logging.error(f"Error processing URL {url}: {str(e)}")
+            raise e
     
-
     def is_article_relevant_for_profile_comparison(self, profile_description:str, summary:str) -> bool:
         try:
             # Setup the chain
-            profile_prompt = Prompt_Handler.get_prompt_template(2,self.user.id)
+            profile_prompt = Prompt_Handler.get_prompt_template(Prompt.NAME_PROFILECOMPARISONPROMPT,self.user.id)
             profile_template = PromptTemplate(
                 template=profile_prompt,
                 input_variables=["profile","article"]
@@ -126,33 +88,25 @@ class SyncAsyncContentProcessor:
             raise e
     
     # This method takes a short summary and compares relevance to the profile 
+        
     def is_article_relevant_short_summary(self, short_summary:str) -> bool:
-        with SessionLocal() as db:
-            # Get user's profile description from database
-            profile_description = db.query(Profile).filter(
-                Profile.user_id == self.user.id
-            ).first().interests_description
+        try:
+            with SessionLocal() as db:
+                profile_description = db.query(Profile).filter(
+                    Profile.user_id == self.user.id
+                ).first().interests_description
             
             # Get article summary
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-
-            # Setup the chain
-            profile_prompt = Prompt_Handler.get_prompt_template(2,self.user.id)
-            profile_template = PromptTemplate(
-                template=profile_prompt,
-                input_variables=["profile","article"]
-            )
-            profile_chain = profile_template | self.llm
-
-            # Run chain
-            result = profile_chain.invoke({
-                "profile": profile_description,
-                "article": short_summary
-            })
-
+            
+            self.setup_chain(Prompt.NAME_PROFILECOMPARISONPROMPT,'gpt-4o')
+            self.result = self.post_chain.invoke({"profile": profile_description, "article": short_summary}).content
             # Parse result - should be just "Yes" or "No"
-            return result.content.strip().lower() == "yes"
+            return self.result.strip().lower() == "yes"
+        except Exception as e:
+            logging.error(f"Error in comparing article relevance to profile: {str(e)}")
+            raise e
 
 
         

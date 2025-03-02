@@ -12,7 +12,7 @@ class Prompt(Base):
     TYPE_PROFILECOMPARING = 2
 
     #Allowed Names
-    NAME_NORMALPOSTGENERATIONPROMPT = "Normal Post Generator"
+    NAME_LINKEDININFORMATIVEPOSTGENERATOR = "LinkedIn Informative Post Generator"
     NAME_PROFILECOMPARISONPROMPT = "Profile Comparison"
 
 
@@ -73,7 +73,7 @@ class Post(Base):
     # Allowed Statuses
     FAILED = 'Failed'
     GENERATED = 'Generated'
-    POSTED = 'Posted'
+    POSTED_LINKEDIN = 'Posted LinkedIn'
     PROCESSING = 'Processing'
 
     id = Column(Integer, primary_key=True)
@@ -85,6 +85,7 @@ class Post(Base):
     error_message = Column(Text, nullable=True)
     created_at_utc = Column(DateTime, default=datetime.now(timezone.utc))
     blog_comparison_id = Column(Integer, ForeignKey('blog_profile_comparisons.id'),nullable=True)
+    text = Column(Text, nullable=True)
 
 class Schedule(Base):
     __tablename__ = 'schedules'
@@ -150,10 +151,11 @@ class BlogProfileComparison(Base):
     STATUS_DEEMED_NOT_RELEVANT = 'Deemed Not Relevant' # URL was deemed not relevant to profile
     STATUS_ACTION_PENDING_TO_DRAFT = 'Action Pending to Draft' # Finished comparison and pending first action, to draft or ignore
     STATUS_DRAFTING = 'Drafting' # Currently Drafting
+    STATUS_REDRAFTING = 'Redrafting' # Currently Drafting
     STATUS_INGNORED_COMPARISON = 'Ignored Comparison' # Chose to ingore comparison and not draft
     STATUS_ACTION_PENDING_TO_POST = 'Action Pending to Post' # Drafting was completed and pending another action, to post or ignore
     STATUS_INGORED_DRAFT = 'Ingored Draft' # Ingored the Draft
-    STATUS_POSTED = 'Posted' # Posted
+    STATUS_POSTED_LINKEDIN = 'Posted LinkedIn' # Posted
     STATUS_FAILED_ON_DRAFT = 'Failed on Draft' # Failed while generating draft
     STATUS_FAILED = 'Failed' #This is on random failures not attributed to important tasks
 

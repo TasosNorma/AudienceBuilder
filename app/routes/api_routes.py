@@ -5,8 +5,9 @@ from ..database.models import BlogProfileComparison,Post
 import logging
 import os
 import secrets
-from ..core.helper_handlers import Schedule_Handler, Blog_Profile_Comparison_Handler
-from ..celery_worker.tasks import generate_post_from_comparison
+from ..core.helper_handlers import Schedule_Handler, Blog_Profile_Comparison_Handler, LinkedIn_Client_Handler
+from ..celery_worker.tasks import generate_linkedin_informative_post_from_comparison, redraft_linkedin_post_from_comparison
+
 
 
 api = Blueprint('api',__name__)
@@ -28,7 +29,6 @@ def disable_schedule(schedule_id):
             "message": str(e)
         })
 
-
 @api.route('/comparison/<int:comparison_id>/ignore', methods=['POST'])
 @login_required
 def ignore_comparison(comparison_id):
@@ -48,7 +48,12 @@ def ignore_comparison(comparison_id):
 @login_required
 def post_comparison(comparison_id):
     try:
-        Blog_Profile_Comparison_Handler.update_comparison_status(comparison_id, BlogProfileComparison.STATUS_POSTED,user_id=current_user.id)
+        with SessionLocal() as db:
+            comparison = db.query(BlogProfileComparison).filter(BlogProfileComparison.id == comparison_id).first()
+            linkedin_client = LinkedIn_Client_Handler(current_user.id)
+            post_text = db.query(Post).filter(Post.blog_comparison_id == comparison_id, Post.user_id == current_user.id).first().text
+            linkedin_client.post(post_text)
+        Blog_Profile_Comparison_Handler.update_comparison_status(comparison_id, BlogProfileComparison.STATUS_POSTED_LINKEDIN,user_id=current_user.id)
         return jsonify({
             "status": "success"
         })
@@ -59,12 +64,11 @@ def post_comparison(comparison_id):
             "message": str(e)
         })
 
-
 @api.route('/comparison/<int:comparison_id>/draft', methods=['POST'])
 @login_required
 def draft_comparison(comparison_id):
     try:
-        generate_post_from_comparison.delay(comparison_id = comparison_id, user_id = current_user.id )
+        generate_linkedin_informative_post_from_comparison.delay(comparison_id = comparison_id, user_id = current_user.id )
         return jsonify({
             "status": "success"
         })
@@ -74,7 +78,6 @@ def draft_comparison(comparison_id):
             "status": "error",
             "message": str(e)
         })
-
 
 @api.route('/comparison/<int:comparison_id>/ignore_draft', methods=['POST'])
 @login_required
@@ -92,3 +95,11 @@ def ignore_draft_comparison(comparison_id):
         })
 
 
+@api.route('/comparison/<int:comparison_id>/redraft', methods=['POST'])
+@login_required
+def redraft_comparison(comparison_id):
+    try:
+        redraft_linkedin_post_from_comparison.delay(current_user.id, comparison_id)
+        return jsonify({"status": "success", "message": "Re-drafting post..."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})

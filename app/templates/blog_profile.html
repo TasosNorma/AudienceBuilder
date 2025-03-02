@@ -82,7 +82,7 @@
                                         <a href="{{ comparison.url }}" target="_blank">{{ comparison.url }}</a>
                                     </td>
                                     <td>
-                                        <span class="badge {% if comparison.status == 'Action Pending to Draft' or comparison.status == 'Action Pending to Post' or comparison.status == 'Posted' %}bg-success
+                                        <span class="badge {% if comparison.status == 'Action Pending to Draft' or comparison.status == 'Action Pending to Post' or comparison.status == 'Posted LinkedIn' %}bg-success
                                         {% elif comparison.status == 'Comparing' or comparison.status == 'Drafting' %}bg-warning
                                         {% else %}bg-danger{% endif %}">
                                             {{ comparison.status }}

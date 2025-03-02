@@ -117,7 +117,7 @@ def actions():
         BlogProfileComparison.STATUS_DRAFTING,
         BlogProfileComparison.STATUS_INGNORED_COMPARISON,
         BlogProfileComparison.STATUS_INGORED_DRAFT,
-        BlogProfileComparison.STATUS_POSTED,
+        BlogProfileComparison.STATUS_POSTED_LINKEDIN,
         BlogProfileComparison.STATUS_FAILED,
         BlogProfileComparison.STATUS_FAILED_ON_COMPARISON,
         BlogProfileComparison.STATUS_FAILED_ON_DRAFT,
@@ -138,7 +138,7 @@ def actions():
         )
     return render_template('actions.html', comparisons=comparisons,all_statuses=all_statuses,selected_statuses=selected_statuses)
 
-@tmpl.route('/blog_comparison/<int:comparison_id>',methods=['GET', 'POST'])
+@tmpl.route('/action/<int:comparison_id>',methods=['GET', 'POST'])
 @login_required
 def action_profile(comparison_id):
     with SessionLocal() as db:
@@ -146,10 +146,7 @@ def action_profile(comparison_id):
             parts = None
             comparison = db.query(BlogProfileComparison).get(comparison_id)
             post = db.query(Post).filter(Post.blog_comparison_id==comparison_id, Post.user_id==current_user.id).first()
-            if post:
-                if post.status == Post.GENERATED:
-                    parts = Post_Handler.get_post_in_parts(post.id)
-            return render_template('action_profile.html', comparison=comparison, post=post,parts=parts, Post = Post)
+            return render_template('action_profile.html', comparison=comparison, post=post, Post = Post)
         except Exception as e:
             logging.error(f"Couldn't get comparison with id {comparison_id} error: {e}")
             flash(f"Unexpected error: {str(e)}", 'error')
@@ -441,7 +438,7 @@ def linkedin_auth():
             'client_id': os.environ['LINKEDIN_CLIENT_ID'],
             'redirect_uri': os.environ['LINKEDIN_CALLBACK_URL'],
             'state': state,
-            'scope': 'w_member_social'
+            'scope': 'profile openid w_member_social'
         }
         
         authorization_url = f"https://www.linkedin.com/oauth/v2/authorization?{urlencode(params)}"
@@ -451,7 +448,7 @@ def linkedin_auth():
         flash(f"LinkedIn authentication failed: {str(e)}", "error")
         return redirect(url_for('tmpl.settings'))
     
-@tmpl.route('/linkedin/callback')
+@tmpl.route('/linkedin/callback',methods=['GET'])
 @login_required
 def linkedin_callback():
     try:
@@ -479,4 +476,27 @@ def linkedin_callback():
     except Exception as e:
         logging.error(f"Error during LinkedIn callback: {str(e)}")
         flash(f"LinkedIn authentication failed: {str(e)}", "error")
+        return redirect(url_for('tmpl.settings'))
+    
+@tmpl.route('/linkedin/disconnect')
+@login_required
+def linkedin_disconnect():
+    try:
+        with SessionLocal() as db:
+            user = db.query(User).filter(User.id == current_user.id).first()
+            
+            user.linkedin_access_token = None
+            user.linkedin_access_token_expires_in = None
+            user.linkedin_refresh_token = None
+            user.linkedin_refresh_token_expires_in = None
+            user.linkedin_scope = None
+            user.linkedin_connected = False
+
+            db.commit()
+            flash('LinkedIn account disconnected successfully', 'success')
+        
+        return redirect(url_for('tmpl.settings'))
+    except Exception as e:
+        logging.error(f"Error disconnecting LinkedIn account: {str(e)}")
+        flash(f"Failed to disconnect LinkedIn account: {str(e)}", "error")
         return redirect(url_for('tmpl.settings'))

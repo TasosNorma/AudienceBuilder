@@ -78,9 +78,8 @@ def compare_profile_task(self, url: str, user_id: int):
         db.commit()
 
 
-# Is called when user pressed "Draft", it creates a new processing result and calls the send_draft to show it to the user.
 @celery_app.task(bind=True)
-def generate_post_from_comparison(self, user_id:int, comparison_id:int=None):
+def generate_linkedin_informative_post_from_comparison(self, user_id:int, comparison_id:int=None):
     post_id = None
     try: 
         with SessionLocal() as db:
@@ -100,12 +99,11 @@ def generate_post_from_comparison(self, user_id:int, comparison_id:int=None):
             db.flush() # Flushes pending changes to the DB so that post.id is populated.
             post_id = post.id
             logging.info(f"Created Post with id: {post.id}")
-            logging.info(f"Starting generate_post_from_comparison task for comparison_id: {comparison_id}")
+            logging.info(f"Starting generate_linkedin_informative_post_from_comparison task for comparison_id: {comparison_id}")
             processor = SyncAsyncContentProcessor(user)
             logging.info(f"Processing URL content for comparison {comparison_id}")
-            post_result = processor.process_url(url)
-            post.parts = json.dumps(post_result.get("parts", []))
-            post.part_count = post_result.get("part_count", 0)
+            post_result = processor.generate_linkedin_informative_post_from_url(url)
+            post.text = post_result
             post.status = Post.GENERATED
             db.commit()
             db.flush()
@@ -128,6 +126,51 @@ def generate_post_from_comparison(self, user_id:int, comparison_id:int=None):
         raise e
 
 
+@celery_app.task(bind=True)
+def redraft_linkedin_post_from_comparison(self, user_id:int, comparison_id:int=None):
+    try:
+        with SessionLocal() as db:
+            comparison = db.query(BlogProfileComparison).get(comparison_id)
+            comparison.status = BlogProfileComparison.STATUS_REDRAFTING
+            url = comparison.url
+            user = db.query(User).get(user_id)
+            
+            # Get the existing post
+            post = db.query(Post).get(comparison.post_id)
+            if not post:
+                raise ValueError(f"No post found for comparison {comparison_id}")
+            
+            # Update post status to reprocessing
+            post.status = Post.PROCESSING
+            db.commit()
+            
+            # Generate new content
+            processor = SyncAsyncContentProcessor(user)
+            logging.info(f"Re-processing URL content for comparison {comparison_id}")
+            post_result = processor.generate_linkedin_informative_post_from_url(url)
+            
+            # Update post with new content
+            post.text = post_result
+            post.status = Post.GENERATED
+            comparison.status = BlogProfileComparison.STATUS_ACTION_PENDING_TO_POST
+            db.commit()
+            
+            logging.info(f"Successfully re-drafted post for comparison {comparison_id}")
+            
+    except Exception as e:
+        logging.error(f"Error re-drafting post for comparison {comparison_id}: {str(e)}")
+        with SessionLocal() as db:
+            comparison = db.query(BlogProfileComparison).get(comparison_id)
+            if comparison:
+                comparison.status = BlogProfileComparison.STATUS_FAILED_ON_DRAFT
+                comparison.error_message = str(e)
+                
+                # Update post status if it exists
+                if comparison.post_id:
+                    post = db.query(Post).get(comparison.post_id)
+                    if post:
+                        post.status = Post.FAILED
+                        post.error_message = str(e)
 # 1. Is called either from blogs_Handler.create_blog_analyse_session or directly from the scheduler
 # 2. Creates a Blog Analysis, extracts all articles from the blog
 # 3. Checks if Articles have been already processed before, if not, it finds out if they are relevant to the user profile
