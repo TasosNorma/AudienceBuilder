@@ -152,9 +152,9 @@ def action_profile(comparison_id):
             flash(f"Unexpected error: {str(e)}", 'error')
             return redirect(url_for('tmpl.actions'))
 
-@tmpl.route('/posts',methods=['GET','POST'])
+@tmpl.route('/drafts',methods=['GET','POST'])
 @login_required
-def posts():
+def drafts():
     form = UrlSubmit()
     processing_history = []
     with SessionLocal() as db:
@@ -168,25 +168,21 @@ def posts():
         generate_post.delay(form.url.data,current_user.id)
         flash('Post Generation started. Please wait while we process your request.', 'info')
         sleep(1) # We do this to make sure that the the record will be created and will be in processing state.
-        return(redirect(url_for('tmpl.posts')))
-    return render_template('posts.html', form=form, processing_history=processing_history)
+        return(redirect(url_for('tmpl.drafts')))
+    return render_template('drafts.html', form=form, processing_history=processing_history)
 
-@tmpl.route('/post/<int:post_id>', methods=['GET'])
+@tmpl.route('/draft/<int:post_id>', methods=['GET'])
 @login_required
-def post_profile(post_id):
-    logging.info(f"Accessing post for ID: {post_id}")
+def draft_profile(post_id):
     with SessionLocal() as db:
         try:
             logging.info(f"Querying database for post_id: {post_id} and user_id: {current_user.id}")
-            parts = []
             post = db.query(Post).filter(Post.id == post_id, Post.user_id == current_user.id).first()
-            if post.status == Post.GENERATED:
-                parts = Post_Handler.get_post_in_parts(post.id)
-            return render_template('post_profile.html', post=post, parts=parts)
+            return render_template('draft_profile.html', post=post)
         except Exception as e:
             logging.error(f"Unexpected error: {str(e)}")
             flash(f"Unexpected error: {str(e)}", 'error')
-            return redirect(url_for('tmpl.posts'))
+            return redirect(url_for('tmpl.drafts'))
 
 @tmpl.route('/prompts', methods =['GET','POST'])
 @login_required

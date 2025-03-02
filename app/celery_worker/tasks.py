@@ -27,9 +27,8 @@ def generate_post(self,url:str,user_id:int):
             post_id = post.id
             user = db.query(User).get(user_id)
             processor = SyncAsyncContentProcessor(user)
-            post_result = processor.process_url(url)
-            post.parts = json.dumps(post_result.get("parts", []))
-            post.part_count = post_result.get("part_count", 0)
+            post_result = processor.generate_linkedin_informative_post_from_url(url)
+            post.text = post_result
             post.status = Post.GENERATED
             db.commit()
     except Exception as e:
@@ -37,6 +36,7 @@ def generate_post(self,url:str,user_id:int):
             post = db.query(Post).get(post_id)
             post.status = Post.FAILED
             post.error_message = str(e)
+            db.commit()
         raise e
 
 # Is called by the profile_compare route and creates a profile_comparison object that judges whether or not the url fits the profile.
