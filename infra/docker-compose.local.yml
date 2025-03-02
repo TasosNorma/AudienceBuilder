@@ -27,7 +27,7 @@ services:
     build:
       context: ..
       dockerfile: infra/Dockerfile.worker
-    command: celery -A app.celery_worker.config:celery_app worker --loglevel=info --concurrency=1 --max-memory-per-child=400000
+    command: celery -A app.celery_worker.config:celery_app worker --loglevel=info --concurrency=10 --max-memory-per-child=400000
     env_file:
       - .env
     environment:

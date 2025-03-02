@@ -40,8 +40,8 @@ celery_app.conf.update(
     },
     
     # Task execution settings
-    task_time_limit=1800,  # 30 minutes max runtime
-    task_soft_time_limit=1500,  # Soft limit 25 minutes
+    task_time_limit=7200,  # 2 hours max runtime
+    task_soft_time_limit=3600,  # Soft limit 1 hour
     
     # Result settings
     result_expires=86400,  # Results expire in 24 hours
