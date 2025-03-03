@@ -1,14 +1,12 @@
 from langchain_openai import ChatOpenAI
 import os
-from typing import Dict, Optional
 from app.database.database import *
-from app.database.models import Profile,ProfileComparison,Prompt
+from app.database.models import Profile,Prompt
 from langchain.prompts import PromptTemplate
 import asyncio
 import logging
 import json
 from cryptography.fernet import Fernet
-from app.core.helper_handlers import Prompt_Handler
 from app.core.scrapfly_crawler import ScrapflyCrawler
 # This class is the Synchronous content processor
 class SyncAsyncContentProcessor:
@@ -38,11 +36,19 @@ class SyncAsyncContentProcessor:
                 template=self.prompt.template,
                 input_variables=self.prompt.input_variables
                 )
-            self.llm = ChatOpenAI(openai_api_key=self.decripted_api_key, model_name=openai_llm_model_name)
+            self.llm = self.setup_llm(openai_llm_model_name)
             self.post_chain = self.prompt_template | self.llm
         except Exception as e:
             logging.error(f"Error setting up chain: {str(e)}")
             raise e
+        
+    def setup_llm(self,openai_llm_model_name:str):
+        self.llm = ChatOpenAI(
+            openai_api_key=self.decripted_api_key,
+            model_name=openai_llm_model_name,
+            timeout=120,
+            max_retries=3)
+        return self.llm
 
     def generate_linkedin_informative_post_from_url(self, url:str):
         try:
@@ -52,27 +58,6 @@ class SyncAsyncContentProcessor:
             return self.result
         except Exception as e:
             logging.error(f"Error processing URL {url}: {str(e)}")
-            raise e
-    
-    def is_article_relevant_for_profile_comparison(self, profile_description:str, summary:str) -> bool:
-        try:
-            # Setup the chain
-            profile_prompt = Prompt_Handler.get_prompt_template(Prompt.NAME_PROFILECOMPARISONPROMPT,self.user.id)
-            profile_template = PromptTemplate(
-                template=profile_prompt,
-                input_variables=["profile","article"]
-            )
-            profile_chain = profile_template | self.llm
-
-            # Run chain
-            result = profile_chain.invoke({
-                "profile": profile_description,
-                "article": summary
-            })
-
-            # Parse result - should be just "Yes" or "No"
-            return result.content.strip().lower() == "yes"
-        except Exception as e:
             raise e
     
     def is_article_relevant_short_summary(self, short_summary:str) -> bool:
@@ -86,7 +71,7 @@ class SyncAsyncContentProcessor:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             
-            self.setup_chain(Prompt.NAME_PROFILECOMPARISONPROMPT,'gpt-4o')
+            self.setup_chain(Prompt.NAME_PROFILECOMPARISONPROMPT,'gpt-4o-mini')
             self.result = self.post_chain.invoke({"profile": profile_description, "article": short_summary}).content
             # Parse result - should be just "Yes" or "No"
             return self.result.strip().lower() == "yes"
@@ -100,7 +85,7 @@ class SyncAsyncContentProcessor:
             asyncio.set_event_loop(loop)
             markdown_content = loop.run_until_complete(self.scrapfly_crawler.get_page_content(url))
             loop.close()
-            llm = ChatOpenAI(openai_api_key=self.decripted_api_key, model_name='gpt-4o-mini')
+            self.setup_llm('gpt-4o-mini')
             prompt = PromptTemplate(
                 template="""You are tasked with creating a concise summary of the provided markdown content.
 
@@ -125,9 +110,7 @@ MARKDOWN CONTENT:
             """,
                 input_variables=["markdown"]
             )
-            
-            logging.info("Invoking LLM chain for article extraction")
-            chain = prompt | llm
+            chain = prompt | self.llm
             response = chain.invoke({"markdown": markdown_content})
 
             return response.content
@@ -141,7 +124,7 @@ MARKDOWN CONTENT:
             asyncio.set_event_loop(loop)
             markdown_content = loop.run_until_complete(self.scrapfly_crawler.get_page_content(url))
             loop.close()
-            llm = ChatOpenAI(openai_api_key=self.decripted_api_key, model_name='gpt-4o-mini')
+            self.setup_llm('gpt-4o-mini')
             prompt = PromptTemplate(
                 template="""You are an expert at reading raw webpage markup and reconstructing the original article text. You will be given the complete HTML markup of a webpage that contains an article. Your task is to produce the clean article text in a well-structured, hierarchical format, reflecting the original headings and subheadings as closely as possible.
             # Instructions:
@@ -160,9 +143,7 @@ MARKDOWN CONTENT:
             """,
                 input_variables=["markdown"]
             )
-            
-            logging.info("Invoking LLM chain for article extraction")
-            chain = prompt | llm
+            chain = prompt | self.llm
             response = chain.invoke({"markdown": markdown_content})
 
             return response.content
@@ -175,12 +156,8 @@ MARKDOWN CONTENT:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             markdown_content = loop.run_until_complete(self.scrapfly_crawler.get_page_content(url))
-            print(f"Extracted markdown content for {url}")
             loop.close()
-            llm = ChatOpenAI(
-                openai_api_key=self.decripted_api_key,
-                model_name='gpt-4o'
-            )
+            self.setup_llm('gpt-4o-mini')
             prompt = PromptTemplate(
                 template="""You are analyzing the markdown content of a webpage that contains multiple articles.
 
@@ -210,7 +187,7 @@ MARKDOWN CONTENT:
     Return only the JSON array, nothing else.""",
                 input_variables=["markdown"]
             )
-            chain = prompt | llm
+            chain = prompt | self.llm
             response = chain.invoke({"markdown": markdown_content})
             content = response.content
 
@@ -250,8 +227,7 @@ if __name__ == "__main__":
         with SessionLocal() as db:
             user = db.query(User).get(30)  # Using a test user ID
             processor = SyncAsyncContentProcessor(user)
-            url = "https://openai.com/news/"  # Example article URL
-            summary = processor.extract_all_articles_from_page(url)
+            summary = processor.is_article_relevant_short_summary("This is a test summary")
             print(summary)
     except Exception as e:
         print(f"Error occurred: {e}")

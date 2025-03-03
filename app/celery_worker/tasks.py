@@ -2,7 +2,7 @@ from app.celery_worker.config import celery_app
 from app.core.content_processor import SyncAsyncContentProcessor
 from app.database.database import SessionLocal
 from app.database.models import User, Post, ProfileComparison, Profile, Blog, BlogProfileComparison
-
+from celery.exceptions import SoftTimeLimitExceeded
 from datetime import datetime, timezone
 import asyncio
 import logging
@@ -162,8 +162,8 @@ def redraft_linkedin_post_from_comparison(self, user_id:int, comparison_id:int=N
 # 3. Checks if Articles have been already processed before, if not, it finds out if they are relevant to the user profile
 @celery_app.task(bind=True)
 def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
-    blog_id = None
     try:
+        blog_id = None
         with SessionLocal() as db:
             user = db.query(User).get(user_id)
             processor = SyncAsyncContentProcessor(user)
@@ -177,19 +177,12 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
             db.add(blog)
             db.commit()
             blog_id = blog.id
-    except Exception as e:
-        logging.error(f"Failed to initialize blog: {str(e)}")
-        return {
-            "status": "error",
-            "message": str(e)
-        }
-    
-    try:
         articles = processor.extract_all_articles_from_page(url)
         with SessionLocal() as db:
             blog = db.query(Blog).get(blog_id)
             blog.number_of_articles = len(articles)
             db.commit()
+        logging.info(f"Extracted {len(articles)} articles from {url} and added to database")
         
         with SessionLocal() as db:
             existing_comparisons = db.query(BlogProfileComparison).filter(
@@ -236,7 +229,7 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
             for url in new_comparisons.keys():
                 short_summary = processor.write_small_summary(url)
                 short_summaries.append(short_summary)
-
+            logging.info(f"Wrote short summaries for {len(new_comparisons)} articles")
             with SessionLocal() as db:
                 for comp_id, short_summary in zip(new_comparisons_ids, short_summaries):
                     comparison = db.query(BlogProfileComparison).get(comp_id)
@@ -273,12 +266,21 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
                         blog_comparison.comparison_result = None
                         logging.error(f"Failed to process comparison for URL {blog_comparison.url}: {str(e)}")
                     db.commit()
+                logging.info(f"Compared {len(blog_comparisons)} articles to the user profile")
         
         with SessionLocal() as db:
             blog = db.query(Blog).get(blog_id)
             blog.status = Blog.COMPLETED
             blog.number_of_fitting_articles = fitting_articles
             db.commit()
+    except SoftTimeLimitExceeded:
+        logging.error(f"Soft time limit exceeded for blog {blog_id} for user {user_id}")
+        with SessionLocal() as db:
+            blog = db.query(Blog).get(blog_id)
+            blog.status = Blog.FAILED
+            blog.error_message = "Task timed out, please contact support"
+            db.commit()
+        raise 
     except Exception as e:
         logging.error(f"Error in the second step of processing blog {blog_id} for user {user_id}: {str(e)}")
         with SessionLocal() as db:
@@ -287,4 +289,3 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
             blog.error_message = str(e)
             db.commit()
         raise e
-    

@@ -40,8 +40,8 @@ celery_app.conf.update(
     },
     
     # Task execution settings
-    task_time_limit=7200,  # 2 hours max runtime
-    task_soft_time_limit=3600,  # Soft limit 1 hour
+    task_time_limit=2600,  # 43 minutes max runtime
+    task_soft_time_limit=2400,  # Soft limit 40 minutes
     
     # Result settings
     result_expires=86400,  # Results expire in 24 hours
@@ -49,4 +49,9 @@ celery_app.conf.update(
     # Beat Schedule_Handler settings
     beat_dburi= beat_dburi,  
     beat_scheduler='sqlalchemy_celery_beat.schedulers:DatabaseScheduler',
+
+    # Flower settings
+    flower_inspect_timeout=5000,
+    flower_persistent=True,
+    flower_db='flower.db',
 )

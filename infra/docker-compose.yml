@@ -99,6 +99,34 @@ services:
       interval: 5s  
       retries: 5 
   
+  celery-flower:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.worker
+    command: celery -A app.celery_worker.config:celery_app flower --port=5555 --basic_auth=anastasios:Hy7Kl9Mn4Pq2Rs5Vw8Xz
+    ports:
+      - "5555:5555"
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CELERY_BROKER_URL=redis://:RDga5zyMvEbhSeA9@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:RDga5zyMvEbhSeA9@redis:6379/0
+    depends_on:
+      - redis
+      - celery-worker
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-region: "us-east-1"
+        awslogs-group: "AudienceBuilder-logs"
+        awslogs-stream: "celery-flower"
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge
