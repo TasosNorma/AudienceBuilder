@@ -60,36 +60,29 @@
                         <table class="table table-hover mb-0">
                             <thead>
                                 <tr>
-                                    <th>Relevance</th>
-                                    <th>Article URL</th>
+                                    <th>Title</th>
                                     <th>Status</th>
-                                    <th>Summary</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for comparison in comparisons %}
                                 <tr>
-                                    <td>{% if comparison.comparison_result %}
-                                        <span class="badge bg-primary">
-                                            {{ comparison.comparison_result }}
-                                        </span>
-                                    {% else %}
-                                        <span class="badge bg-secondary">Pending</span>
-                                    {% endif %}
-                                    </td>
-                                    <td class="text-truncate" style="max-width: 200px;">
-                                        <a href="{{ comparison.url }}" target="_blank">{{ comparison.url }}</a>
+                                    <td class="text-truncate" style="max-width: 300px;">
+                                        {{ comparison.title if comparison.title else '-' }}
                                     </td>
                                     <td>
-                                        <span class="badge {% if comparison.status == 'Action Pending to Draft' or comparison.status == 'Action Pending to Post' or comparison.status == 'Posted LinkedIn' %}bg-success
-                                        {% elif comparison.status == 'Comparing' or comparison.status == 'Drafting' %}bg-warning
-                                        {% else %}bg-danger{% endif %}">
-                                            {{ comparison.status }}
-                                        </span>
-                                    </td>
-                                    <td class="text-truncate" style="max-width: 300px;">
-                                        {{ comparison.short_summary if comparison.short_summary else '-' }}
+                                        {% if comparison.status == BlogProfileComparison.STATUS_PROCESSED_IN_PAST_BLOG and comparison.past_blog_id %}
+                                            <a href="{{ url_for('tmpl.blog_profile', blog_id=comparison.past_blog_id) }}" class="badge bg-info text-decoration-none">
+                                                {{ comparison.status }} <i class="bi bi-link-45deg"></i>
+                                            </a>
+                                        {% else %}
+                                            <span class="badge {% if comparison.status == 'Action Pending to Draft' or comparison.status == 'Action Pending to Post' or comparison.status == 'Posted LinkedIn' %}bg-success
+                                            {% elif comparison.status == 'Comparing' or comparison.status == 'Drafting' %}bg-warning
+                                            {% else %}bg-danger{% endif %}">
+                                                {{ comparison.status }}
+                                            </span>
+                                        {% endif %}
                                     </td>
                                     <td>
                                         <a href="{{ url_for('tmpl.action_profile', comparison_id=comparison.id) }}" 

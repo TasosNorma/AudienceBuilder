@@ -6,7 +6,7 @@ from ..database.database import SessionLocal
 from ..database.models import Prompt, Profile, User, Post,Schedule, Blog, BlogProfileComparison,ProfileComparison
 import logging
 from cryptography.fernet import Fernet
-from ..core.helper_handlers import Schedule_Handler,Post_Handler, User_Handler, LinkedIn_Auth_Handler
+from ..core.helper_handlers import Schedule_Handler, User_Handler, LinkedIn_Auth_Handler
 from flask_wtf.csrf import generate_csrf
 from time import sleep
 from urllib.parse import urlencode
@@ -176,7 +176,6 @@ def drafts():
 def draft_profile(post_id):
     with SessionLocal() as db:
         try:
-            logging.info(f"Querying database for post_id: {post_id} and user_id: {current_user.id}")
             post = db.query(Post).filter(Post.id == post_id, Post.user_id == current_user.id).first()
             return render_template('draft_profile.html', post=post)
         except Exception as e:
@@ -219,7 +218,6 @@ def profile():
             if form.validate_on_submit():
                 profile.interests_description = form.interests_description.data
                 db.commit()
-                logging.info(f"Successfully updated profile interests for user {current_user.id}")
                 flash("Profile updated successfully", "success")
                 return redirect(url_for('tmpl.profile'))
             return render_template('profile.html', form=form, profile=profile)
@@ -273,11 +271,8 @@ def schedule():
     schedule_handler = Schedule_Handler(current_user.id)
     
     try:
-        logging.info("Fetching schedules for user_id: %s", current_user.id)
         schedules = db.query(Schedule).filter(Schedule.user_id == current_user.id).order_by(Schedule.created_at.desc()).all()
         csrf_token = generate_csrf()
-        
-        logging.info("Found %d schedules and generated csrf", len(schedules))
             
         if form.validate_on_submit():
             schedule_handler.create_blog_schedule(
@@ -389,7 +384,7 @@ def blog_profile(blog_id):
                      BlogProfileComparison.created_at.desc())\
             .all()
         
-        return render_template('blog_profile.html', blog=blog, comparisons=comparisons)
+        return render_template('blog_profile.html', blog=blog, comparisons=comparisons, BlogProfileComparison = BlogProfileComparison)
     except Exception as e:
         logging.error(f"Error in blog detail route: {str(e)}")
         flash('An error occurred while processing your request', 'error')

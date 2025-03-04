@@ -162,6 +162,7 @@ class BlogProfileComparison(Base):
 
     id = Column(Integer, primary_key=True)
     url = Column(String(2048), nullable=False)
+    title = Column(String(2048), nullable=True)
     blog_id = Column(Integer, ForeignKey('blogs.id'), nullable=False)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -172,3 +173,4 @@ class BlogProfileComparison(Base):
     post_id = Column(Integer, ForeignKey('posts.id'),nullable=True)
     error_message = Column(Text, nullable=True)
     schedule_id = Column(Integer, ForeignKey('schedules.id'),nullable=True)
+    past_blog_id = Column(Integer, ForeignKey('blogs.id'),nullable=True)

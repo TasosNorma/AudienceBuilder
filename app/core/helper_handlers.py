@@ -55,8 +55,6 @@ class Schedule_Handler:
             # Commit both sessions
             beat_session.commit()
             app_db.commit()
-
-            logging.info(f"Successfully created scheduled task '{interval_task.name}' with interval {interval_schedule.every} {interval_schedule.period}")
         except Exception as e:
             beat_session.rollback()
             app_db.rollback()
@@ -113,7 +111,6 @@ class Blog_Profile_Comparison_Handler:
                     raise ValueError("Comparison not found or access denied")
                 else:
                     comparison.status = new_status
-                    logging.info(f"Updated comparison {comparison_id} status to {new_status}")
             except Exception as e:
                 db.rollback()
                 comparison.status = BlogProfileComparison.STATUS_FAILED
@@ -199,7 +196,6 @@ class User_Handler:
                 db.add(default_prompt_2)
                 db.add(default_prompt_1)
                 db.commit()
-                logging.info("Successfully added the default prompts for user %s", user_id)
             except Exception as e:
                 db.rollback()
                 logging.error("Error setting default prompts for user %s: %s", user_id, e)

@@ -188,40 +188,43 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
             existing_comparisons = db.query(BlogProfileComparison).filter(
                 BlogProfileComparison.user_id == user_id
             ).all()
-        processed_urls = {comp.url for comp in existing_comparisons}
+        processed_urls = {comp.url: comp.blog_id for comp in existing_comparisons}
         new_comparisons = {url: title for url, title in articles.items() if url not in processed_urls}
-        already_processed = {url: title for url, title in articles.items() if url in processed_urls}
+        already_processed = {url: {'title': title, 'past_blog_id': processed_urls[url]} 
+                            for url, title in articles.items() if url in processed_urls}
 
         new_comparisons_ids = []
         with SessionLocal() as db:
             profile = db.query(Profile).filter_by(user_id=user_id).first()
             for url, title in new_comparisons.items():
-                comparison = BlogProfileComparison(
+                comparison = BlogProfileComparison( 
                     url=url,
                     blog_id=blog_id,
                     user_id=user_id,
                     schedule_id=schedule_id,
                     profile_interests=profile.interests_description,
-                    status=BlogProfileComparison.STATUS_COMPARING
+                    status=BlogProfileComparison.STATUS_COMPARING,
+                    title=title
                 )
                 db.add(comparison)
                 db.flush()
                 new_comparisons_ids.append(comparison.id)
                 db.commit()
             
-        with SessionLocal() as db:
-            profile = db.query(Profile).filter_by(user_id=user_id).first()
-            for url in already_processed:
+            for url, data in already_processed.items():
                 comparison = BlogProfileComparison(
                     url=url,
                     blog_id=blog_id,
                     user_id=user_id,
                     schedule_id=schedule_id,
                     profile_interests=profile.interests_description,
-                    status=BlogProfileComparison.STATUS_PROCESSED_IN_PAST_BLOG
+                    status=BlogProfileComparison.STATUS_PROCESSED_IN_PAST_BLOG,
+                    past_blog_id=data['past_blog_id'],
+                    title=data['title']
                 )
                 db.add(comparison)
-            db.commit()
+                db.flush()
+                db.commit()
 
         fitting_articles = 0
         if new_comparisons:
