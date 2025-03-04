@@ -49,15 +49,22 @@ celery_app.conf.update(
     # Beat Schedule_Handler settings
     beat_dburi= beat_dburi,  
     beat_scheduler='sqlalchemy_celery_beat.schedulers:DatabaseScheduler',
-    beat_engine_options={
+        beat_engine_options={
+        # Only include connect_args which are compatible with NullPool
         'connect_args': {
-            'connect_timeout': 10,
-            'keepalives': 1,
-            'keepalives_idle': 30,
-            'keepalives_interval': 10,
-            'keepalives_count': 5
+            'connect_timeout': 10,      # Maximum time to wait for database connection in seconds
+            'keepalives': 1,            # Enable TCP keepalive packets
+            'keepalives_idle': 30,      # Seconds of idle time before sending keepalive
+            'keepalives_interval': 10,  # Seconds between keepalive probes
+            'keepalives_count': 5,      # Number of failed probes before connection is dropped
+            'sslmode': 'require',       # Enforce SSL connection
+            'application_name': 'celery-beat',  # Identify application in database logs
         },
     },
+    
+    # Beat scheduler retry settings
+    beat_max_loop_interval=60,          # Maximum interval between beat loop iterations (seconds)
+    beat_sync_every=10, 
 
     # Flower settings
     flower_inspect_timeout=5000,
