@@ -50,10 +50,13 @@ celery_app.conf.update(
     beat_dburi= beat_dburi,  
     beat_scheduler='sqlalchemy_celery_beat.schedulers:DatabaseScheduler',
     beat_engine_options={
-        'pool_pre_ping': True,    # Enable connection testing before usage to prevent stale connections
-        'pool_recycle': 300,      # Recycle connections every 300 seconds (5 minutes) to avoid timeouts
-        'pool_size': 3,           # Maintain 3 permanent connections in the pool
-        'max_overflow': 5,        # Allow up to 5 additional temporary connections when pool is full
+        'connect_args': {
+            'connect_timeout': 10,
+            'keepalives': 1,
+            'keepalives_idle': 30,
+            'keepalives_interval': 10,
+            'keepalives_count': 5
+        },
     },
 
     # Flower settings
