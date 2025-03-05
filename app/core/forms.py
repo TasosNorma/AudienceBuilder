@@ -43,10 +43,10 @@ class SettingsForm(FlaskForm):
     submit = SubmitField('Update Settings')
 
 class ScheduleForm(FlaskForm):
-    url = StringField('URL', validators=[DataRequired(), URL()])
+    url = StringField('URL', validators=[DataRequired(), URL(message="The URL was invalid. Make sure to include https:// at the beginning.")])
     minutes = IntegerField('Minutes between runs', 
                           validators=[DataRequired(), NumberRange(min=1, max=1440)],  # max 24 hours
-                          default=2)
+                          default=60)
     submit = SubmitField('Schedule Task')
 
 class ProfileForm(FlaskForm):

@@ -9,6 +9,8 @@ import json
 import os
 import requests
 from cryptography.fernet import Fernet
+import re
+from urllib.parse import urlparse
 
 class Schedule_Handler:
     def __init__(self,user_id: int) -> None:
@@ -28,8 +30,23 @@ class Schedule_Handler:
             beat_session.add(interval_schedule)
             beat_session.flush()  # Flush to get the ID
 
-            task_name = f'blogs{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+            # MAKE BEAUTIFUL NAME FOR SCHEDULE AUTOMATICALLY.
 
+            # Extract domain and path for a more meaningful name
+            parsed_url = urlparse(url)
+            domain = parsed_url.netloc.replace('www.', '')
+            path = parsed_url.path.strip('/')
+            # Remove .com, .org, etc. from domain
+            domain = re.sub(r'\.[a-z]+$', '', domain)
+            # Create a more meaningful task name
+            if path:
+                task_name = f'{domain.capitalize()}/{path}'
+            else:
+                task_name = f'{domain.capitalize()}'
+            # Fallback to timestamp if we couldn't extract a proper name
+            if not task_name:
+                task_name = f'blogs{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+            
             schedule = Schedule(
             user_id=self.user_id,
             name=task_name,

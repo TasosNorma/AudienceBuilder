@@ -309,7 +309,7 @@ def schedule_profile(schedule_id):
             if not schedule_obj:
                 flash("Schedule not found or access denied", "error")
                 return redirect(url_for('tmpl.schedule'))        
-            associated_blogs = db.query(Blog).filter_by(schedule_id=schedule_id).all()
+            associated_blogs = db.query(Blog).filter_by(schedule_id=schedule_id).order_by(Blog.created_at.desc()).all()
             schedule = {
                 "id": schedule_obj.id,
                 "name": schedule_obj.name,

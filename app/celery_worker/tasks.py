@@ -1,7 +1,7 @@
 from app.celery_worker.config import celery_app
 from app.core.content_processor import SyncAsyncContentProcessor
 from app.database.database import SessionLocal
-from app.database.models import User, Post, ProfileComparison, Profile, Blog, BlogProfileComparison
+from app.database.models import User, Post, ProfileComparison, Profile, Blog, BlogProfileComparison, Schedule
 from celery.exceptions import SoftTimeLimitExceeded
 from datetime import datetime, timezone
 import asyncio
@@ -164,6 +164,10 @@ def redraft_linkedin_post_from_comparison(self, user_id:int, comparison_id:int=N
 def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
     try:
         blog_id = None
+        with SessionLocal() as db:
+            schedule = db.query(Schedule).get(schedule_id)
+            schedule.last_run_at = datetime.utcnow()    
+            db.commit()
         with SessionLocal() as db:
             user = db.query(User).get(user_id)
             processor = SyncAsyncContentProcessor(user)

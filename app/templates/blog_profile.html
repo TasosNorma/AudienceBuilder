@@ -37,6 +37,13 @@
                                     </span>
                                 </p>
                                 <p><strong>Analyzed Date:</strong> {{ blog.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                                <p><strong>Schedule:</strong> 
+                                    {% if blog.schedule_id %}
+                                        <a href="{{ url_for('tmpl.schedule_profile', schedule_id=blog.schedule_id) }}">View Schedule</a>
+                                    {% else %}
+                                        <span class="text-muted">No schedule</span>
+                                    {% endif %}
+                                </p>
                             </div>
                             <div class="col-md-6">
                                 <p><strong>Total Articles:</strong> {{ blog.number_of_articles }}</p>
