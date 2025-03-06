@@ -49,9 +49,8 @@ def ignore_comparison(comparison_id):
 def post_comparison(comparison_id):
     try:
         with SessionLocal() as db:
-            comparison = db.query(BlogProfileComparison).filter(BlogProfileComparison.id == comparison_id).first()
             linkedin_client = LinkedIn_Client_Handler(current_user.id)
-            post_text = db.query(Post).filter(Post.blog_comparison_id == comparison_id, Post.user_id == current_user.id).first().text
+            post_text = db.query(Post).filter(Post.blog_comparison_id == comparison_id, Post.user_id == current_user.id).first().plain_text
             linkedin_client.post(post_text)
         Blog_Profile_Comparison_Handler.update_comparison_status(comparison_id, BlogProfileComparison.STATUS_POSTED_LINKEDIN,user_id=current_user.id)
         return jsonify({

@@ -10,9 +10,10 @@ from ..core.helper_handlers import Schedule_Handler, User_Handler, LinkedIn_Auth
 from flask_wtf.csrf import generate_csrf
 from time import sleep
 from urllib.parse import urlencode
-from app.celery_worker.tasks import compare_profile_task, blog_analyse,generate_post
+from app.celery_worker.tasks import compare_profile_task, blog_analyse,generate_linkedin_informative_post_from_url
 import secrets
-
+import markdown
+import re
 
 tmpl = Blueprint('tmpl', __name__)
 fernet = Fernet(os.environ['ENCRYPTION_KEY'].encode())
@@ -165,7 +166,7 @@ def drafts():
             .all()
 
     if form.validate_on_submit():
-        generate_post.delay(form.url.data,current_user.id)
+        generate_linkedin_informative_post_from_url.delay(form.url.data,current_user.id)
         flash('Post Generation started. Please wait while we process your request.', 'info')
         sleep(1) # We do this to make sure that the the record will be created and will be in processing state.
         return(redirect(url_for('tmpl.drafts')))
@@ -491,3 +492,20 @@ def linkedin_disconnect():
         logging.error(f"Error disconnecting LinkedIn account: {str(e)}")
         flash(f"Failed to disconnect LinkedIn account: {str(e)}", "error")
         return redirect(url_for('tmpl.settings'))
+    
+
+@tmpl.app_template_filter('markdown')
+def markdown_filter(text):
+    if text:
+        # Here we take out the hashtags and we replace them with a span with class hashtag, otherwise they appear as H1 in UI
+        hashtag_pattern = r'#(\w+)'
+        html = markdown.markdown(text)
+        html = re.sub(hashtag_pattern, r'<span class="hashtag">#\1</span>', html)
+        return html
+    return ''
+
+@tmpl.app_template_filter('nl2br')
+def nl2br_filter(text):
+    if not text:
+        return ""
+    return text.replace('\n', '<br>')

@@ -9,7 +9,7 @@ import logging
 
 
 @celery_app.task(bind=True)
-def generate_post(self,url:str,user_id:int):
+def generate_linkedin_informative_post_from_url(self,url:str,user_id:int):
     post_id = None
     try:
         with SessionLocal() as db:
@@ -25,8 +25,11 @@ def generate_post(self,url:str,user_id:int):
             post_id = post.id
             user = db.query(User).get(user_id)
             processor = SyncAsyncContentProcessor(user)
-            post_result = processor.generate_linkedin_informative_post_from_url(url)
-            post.text = post_result
+            markdown_result = processor.generate_linkedin_informative_post_from_url(url)
+            post.markdown_text = markdown_result
+            # Convert markdown to plain text
+            plain_text_result = processor.convert_markdown_to_plain_text(markdown_result)
+            post.plain_text = plain_text_result
             post.status = Post.GENERATED
             db.commit()
     except Exception as e:
@@ -92,8 +95,11 @@ def generate_linkedin_informative_post_from_comparison(self, user_id:int, compar
             db.flush() # Flushes pending changes to the DB so that post.id is populated.
             post_id = post.id
             processor = SyncAsyncContentProcessor(user)
-            post_result = processor.generate_linkedin_informative_post_from_url(url)
-            post.text = post_result
+            markdown_result = processor.generate_linkedin_informative_post_from_url(url)
+            post.markdown_text = markdown_result
+            # Convert markdown to plain text
+            plain_text_result = processor.convert_markdown_to_plain_text(markdown_result)
+            post.plain_text = plain_text_result
             post.status = Post.GENERATED
             db.commit()
             db.flush()
@@ -135,10 +141,13 @@ def redraft_linkedin_post_from_comparison(self, user_id:int, comparison_id:int=N
             
             # Generate new content
             processor = SyncAsyncContentProcessor(user)
-            post_result = processor.generate_linkedin_informative_post_from_url(url)
+            markdown_result = processor.generate_linkedin_informative_post_from_url(url)
             
             # Update post with new content
-            post.text = post_result
+            post.markdown_text = markdown_result
+            # Convert markdown to plain text
+            plain_text_result = processor.convert_markdown_to_plain_text(markdown_result)
+            post.plain_text = plain_text_result
             post.status = Post.GENERATED
             comparison.status = BlogProfileComparison.STATUS_ACTION_PENDING_TO_POST
             db.commit()

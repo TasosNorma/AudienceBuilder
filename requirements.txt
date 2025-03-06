@@ -28,3 +28,4 @@ redis==5.2.1
 flower==2.0.1
 sqlalchemy_celery_beat==0.8.0
 emoji == 2.14.1
+markdown==3.4.1

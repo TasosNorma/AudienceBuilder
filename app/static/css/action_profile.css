@@ -1,0 +1,23 @@
+.post-content {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+}
+.post-content p {
+    margin-bottom: 1rem;
+}
+.post-content ul {
+    padding-left: 1.5rem;
+}
+.post-content li {
+    margin-bottom: 0.5rem;
+}
+.hashtag {
+    color: #0366d6;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+.emoji {
+    font-size: 1.2rem;
+}

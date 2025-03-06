@@ -219,6 +219,35 @@ MARKDOWN CONTENT:
             logging.error(f"Error extracting articles from {url}: {str(e)}")
             raise e
         
+    def convert_markdown_to_plain_text(self, markdown_text:str):
+        """Convert markdown formatted text to plain text suitable for LinkedIn posting."""
+        try:
+            self.setup_llm('gpt-4o-mini')
+            prompt = PromptTemplate(
+                template="""You are tasked with converting markdown text to plain text suitable for LinkedIn.
+
+INSTRUCTIONS:
+1. Remove all markdown formatting (##, *, _, etc.) but maintain the structure and hierarchy
+2. Convert bullet points to appropriate Unicode characters (•)
+3. Keep emojis intact
+4. Maintain paragraph breaks
+5. Format hashtags properly (keep the # symbol)
+6. Ensure the text reads naturally on LinkedIn where markdown is not supported
+7. Do not add or remove any content - just convert the formatting
+
+MARKDOWN TEXT:
+{markdown_text}
+
+Provide ONLY the plain text version without any explanations.
+                """,
+                input_variables=["markdown_text"]
+            )
+            chain = prompt | self.llm
+            response = chain.invoke({"markdown_text": markdown_text})
+            return response.content
+        except Exception as e:
+            logging.error(f"Error converting markdown to plain text: {str(e)}")
+            raise e
 
 if __name__ == "__main__":
     from app.database.database import SessionLocal

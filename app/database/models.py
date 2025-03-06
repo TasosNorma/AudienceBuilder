@@ -85,7 +85,8 @@ class Post(Base):
     error_message = Column(Text, nullable=True)
     created_at_utc = Column(DateTime, default=datetime.now(timezone.utc))
     blog_comparison_id = Column(Integer, ForeignKey('blog_profile_comparisons.id'),nullable=True)
-    text = Column(Text, nullable=True)
+    markdown_text = Column(Text, nullable=True)  
+    plain_text = Column(Text, nullable=True) 
 
 class Schedule(Base):
     __tablename__ = 'schedules'
