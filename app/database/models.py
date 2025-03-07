@@ -75,7 +75,8 @@ class Post(Base):
     GENERATED = 'Generated'
     POSTED_LINKEDIN = 'Posted LinkedIn'
     PROCESSING = 'Processing'
-
+    REDRAFTING = 'Redrafting'
+    
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     url = Column(String(2048), nullable=False)

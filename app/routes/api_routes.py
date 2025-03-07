@@ -6,7 +6,7 @@ import logging
 import os
 import secrets
 from ..core.helper_handlers import Schedule_Handler, Blog_Profile_Comparison_Handler, LinkedIn_Client_Handler
-from ..celery_worker.tasks import generate_linkedin_informative_post_from_comparison, redraft_linkedin_post_from_comparison
+from ..celery_worker.tasks import generate_linkedin_informative_post_from_comparison, redraft_linkedin_post_from_comparison, redraft_post_task
 
 
 
@@ -52,6 +52,8 @@ def post_comparison(comparison_id):
             linkedin_client = LinkedIn_Client_Handler(current_user.id)
             post_text = db.query(Post).filter(Post.blog_comparison_id == comparison_id, Post.user_id == current_user.id).first().plain_text
             linkedin_client.post(post_text)
+            db.query(Post).filter(Post.blog_comparison_id == comparison_id, Post.user_id == current_user.id).update({Post.status: Post.STATUS_POSTED_LINKEDIN})
+            db.commit()
         Blog_Profile_Comparison_Handler.update_comparison_status(comparison_id, BlogProfileComparison.STATUS_POSTED_LINKEDIN,user_id=current_user.id)
         return jsonify({
             "status": "success"
@@ -101,4 +103,45 @@ def redraft_comparison(comparison_id):
         redraft_linkedin_post_from_comparison.delay(current_user.id, comparison_id)
         return jsonify({"status": "success", "message": "Re-drafting post..."})
     except Exception as e:
+        logging.error(f"Error re-drafting comparison {comparison_id}: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)})
+
+
+@api.route('/draft/<int:post_id>/post', methods=['POST'])
+@login_required
+def post_draft(post_id):
+    try:
+        with SessionLocal() as db:
+            post = db.query(Post).filter(Post.id == post_id, Post.user_id == current_user.id).first()
+            if not post:
+                return jsonify({"status": "error", "message": "Post not found"})
+            
+            linkedin_client = LinkedIn_Client_Handler(current_user.id)
+            linkedin_client.post(post.plain_text)
+            post.status = Post.POSTED_LINKEDIN
+            # If post is linked to a comparison, update comparison status too
+            if post.blog_comparison_id:
+                Blog_Profile_Comparison_Handler.update_comparison_status(
+                    post.blog_comparison_id, 
+                    BlogProfileComparison.STATUS_POSTED_LINKEDIN,
+                    user_id=current_user.id
+                )
+            db.commit()
+        return jsonify({"status": "success", "message": "Post published to LinkedIn"})
+    except Exception as e:
+        logging.error(f"Error posting draft: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)})
+
+@api.route('/draft/<int:post_id>/redraft', methods=['POST'])
+@login_required
+def redraft_draft(post_id):
+    try:
+        with SessionLocal() as db:
+            post = db.query(Post).filter(Post.id == post_id, Post.user_id == current_user.id).first()
+            if not post:
+                return jsonify({"status": "error", "message": "Post not found"})
+            redraft_post_task.delay(current_user.id, post_id)
+        return jsonify({"status": "success", "message": "Re-drafting post..."})
+    except Exception as e:
+        logging.error(f"Error redrafting post: {str(e)}")
         return jsonify({"status": "error", "message": str(e)})

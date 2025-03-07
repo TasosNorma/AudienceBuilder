@@ -75,7 +75,6 @@
                                     <th>ID</th>
                                     <th>URL</th>
                                     <th>Status</th>
-                                    <th>Preview</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -90,11 +89,6 @@
                                         <span class="badge {% if item.status == 'Generated' or item.status == 'Posted LinkedIn' %}bg-success{% elif item.status == 'Processing' %}bg-warning{% else %}bg-danger{% endif %}">
                                             {{ item.status }}
                                         </span>
-                                    </td>
-                                    <td class="text-truncate" style="max-width: 300px;">
-                                        {% if item.parts %}
-                                            {{ item.parts.split('","')[0][2:] }}
-                                        {% endif %}
                                     </td>
                                     <td>
                                         <a href="{{ url_for('tmpl.draft_profile', post_id=item.id) }}" class="btn btn-sm btn-outline-primary">

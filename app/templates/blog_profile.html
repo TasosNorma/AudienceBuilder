@@ -32,7 +32,7 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <p><strong>Status:</strong> 
-                                    <span class="badge {% if blog.status == 'Completed' %}bg-success{% elif blog.status == 'Processing' %}bg-warning{% else %}bg-danger{% endif %}">
+                                    <span class="badge {% if blog.status == 'Completed' %}bg-success{% elif blog.status == 'Processing' %}bg-warning{% elif blog.status == 'Processed in Past Blog' %}bg-warning{% else %}bg-danger{% endif %}">
                                         {{ blog.status }}
                                     </span>
                                 </p>

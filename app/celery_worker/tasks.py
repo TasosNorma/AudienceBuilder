@@ -122,6 +122,33 @@ def generate_linkedin_informative_post_from_comparison(self, user_id:int, compar
 
 
 @celery_app.task(bind=True)
+def redraft_post_task(self, user_id:int, post_id:int):
+    try:
+        with SessionLocal() as db:
+            post = db.query(Post).get(post_id)
+            post.status = Post.REDRAFTING
+            db.commit()
+            url = post.url
+            user = db.query(User).get(user_id)
+            processor = SyncAsyncContentProcessor(user)
+            markdown_result = processor.generate_linkedin_informative_post_from_url(url)
+            post.markdown_text = markdown_result
+            plain_text_result = processor.convert_markdown_to_plain_text(markdown_result)
+            post.plain_text = plain_text_result
+            post.status = Post.GENERATED
+            db.commit()
+            
+    except Exception as e:
+        logging.error(f"Error re-drafting post {post_id}: {str(e)}")
+        with SessionLocal() as db:
+            post = db.query(Post).get(post_id)
+            if post:
+                post.status = Post.FAILED
+                post.error_message = str(e)
+                db.commit()
+        raise e
+
+@celery_app.task(bind=True)
 def redraft_linkedin_post_from_comparison(self, user_id:int, comparison_id:int=None):
     try:
         with SessionLocal() as db:
