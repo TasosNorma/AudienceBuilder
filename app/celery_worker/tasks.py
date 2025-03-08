@@ -201,9 +201,11 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
     try:
         blog_id = None
         with SessionLocal() as db:
-            schedule = db.query(Schedule).get(schedule_id)
-            schedule.last_run_at = datetime.utcnow()    
-            db.commit()
+            if schedule_id is not None:
+                schedule = db.query(Schedule).get(schedule_id)
+                if schedule:
+                    schedule.last_run_at = datetime.utcnow()    
+                    db.commit()
         with SessionLocal() as db:
             user = db.query(User).get(user_id)
             processor = SyncAsyncContentProcessor(user)
@@ -228,9 +230,17 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
             existing_comparisons = db.query(BlogProfileComparison).filter(
                 BlogProfileComparison.user_id == user_id
             ).all()
-        processed_urls = {comp.url: comp.blog_id for comp in existing_comparisons}
+            # Dictionary that includes the oldest blog_id for each url 
+            processed_urls = {}
+            for comp in existing_comparisons:
+                if comp.url not in processed_urls or comp.created_at < processed_urls[comp.url]['created_at']:
+                    processed_urls[comp.url] = {
+                        'blog_id': comp.blog_id,
+                        'created_at': comp.created_at,
+                        'short_summary': comp.short_summary
+                    }
         new_comparisons = {url: title for url, title in articles.items() if url not in processed_urls}
-        already_processed = {url: {'title': title, 'past_blog_id': processed_urls[url]} 
+        already_processed = {url: {'title': title, 'past_blog_id': processed_urls[url]['blog_id'], 'short_summary': processed_urls[url]['short_summary']} 
                             for url, title in articles.items() if url in processed_urls}
 
         new_comparisons_ids = []
@@ -260,6 +270,7 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
                     profile_interests=profile.interests_description,
                     status=BlogProfileComparison.STATUS_PROCESSED_IN_PAST_BLOG,
                     past_blog_id=data['past_blog_id'],
+                    short_summary=data['short_summary'],
                     title=data['title']
                 )
                 db.add(comparison)

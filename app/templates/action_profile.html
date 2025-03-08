@@ -13,6 +13,9 @@
         <div class="row justify-content-center">
             <div class="col-md-8">
                 <div class="py-5">
+                    <a href="{{ url_for('tmpl.actions') }}" class="btn btn-outline-secondary mb-3">
+                        <i class="bi bi-arrow-left"></i> Back to Actions
+                    </a>
                     <h1 class="display-4">Article Comparison Details</h1>
                     <p class="lead">
                         <a href="{{ comparison.url }}" target="_blank">{{ comparison.url }}</a>

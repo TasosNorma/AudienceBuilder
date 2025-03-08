@@ -32,9 +32,9 @@
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Status: 
-                            <span class="badge {% if comparison.status == 'Action Pending to Draft' or comparison.status == 'Action Pending to Post' or comparison.status == 'Posted LinkedIn' %}bg-success
-                                        {% elif comparison.status == 'Comparing' or comparison.status == 'Drafting' %}bg-warning
-                                        {% else %}bg-danger{% endif %}">
+                            <span class="badge {% if comparison.status == 'Completed' %}bg-success
+                                        {% elif comparison.status == 'Failed' %}bg-danger
+                                        {% else %}bg-secondary{% endif %}">
                                             {{ comparison.status }}
                             </span>
                         </h5>

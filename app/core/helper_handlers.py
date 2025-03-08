@@ -57,9 +57,11 @@ class Schedule_Handler:
             app_db.add(schedule)
             app_db.flush()
             
+            # Create unique periodic task name with user ID and timestamp
+            periodic_task_name = f'blog_analyse_user_{self.user_id}_{task_name}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
             interval_task = PeriodicTask(
                 schedule_model=interval_schedule,
-                name=task_name,
+                name=periodic_task_name,
                 task='app.celery_worker.tasks.blog_analyse',
                 args=json.dumps([url, self.user_id, schedule.id]),
                 kwargs=json.dumps({}),
