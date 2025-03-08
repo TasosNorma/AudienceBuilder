@@ -28,3 +28,27 @@ form.loading .submit-btn {
     border-left: 4px solid #1DA1F2;
     background-color: #f8f9fa;
 }
+
+/* Hover card styles */
+.action-hover-card {
+    position: fixed;
+    width: 550px;
+    z-index: 1000;
+    top: 20px;
+    right: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transition: opacity 0.2s ease-in-out;
+    max-height: 120vh;
+    overflow-y: auto;
+}
+
+.action-hover-card .card {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.action-hover-card .card-text {
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-line;
+}

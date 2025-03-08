@@ -14,6 +14,7 @@ from app.celery_worker.tasks import compare_profile_task, blog_analyse,generate_
 import secrets
 import markdown
 import re
+from sqlalchemy import case
 
 tmpl = Blueprint('tmpl', __name__)
 fernet = Fernet(os.environ['ENCRYPTION_KEY'].encode())
@@ -126,7 +127,10 @@ def actions():
         BlogProfileComparison.STATUS_PROCESSED_IN_PAST_BLOG,
         BlogProfileComparison.STATUS_DEEMED_NOT_RELEVANT
     ]
-    selected_statuses = request.args.getlist('statuses') or [BlogProfileComparison.STATUS_ACTION_PENDING_TO_POST, BlogProfileComparison.STATUS_ACTION_PENDING_TO_DRAFT]
+    selected_statuses = request.args.getlist('statuses') or [
+        BlogProfileComparison.STATUS_ACTION_PENDING_TO_POST, BlogProfileComparison.STATUS_ACTION_PENDING_TO_DRAFT,
+        BlogProfileComparison.STATUS_DRAFTING, BlogProfileComparison.STATUS_REDRAFTING
+    ]
     with SessionLocal() as db:
         comparisons = (
             db.query(BlogProfileComparison)
@@ -134,7 +138,13 @@ def actions():
                 BlogProfileComparison.user_id == current_user.id,
                 BlogProfileComparison.status.in_(selected_statuses)
             )
-            .order_by(BlogProfileComparison.created_at.desc())
+            .order_by(
+                case(
+                    (BlogProfileComparison.status == BlogProfileComparison.STATUS_ACTION_PENDING_TO_POST, 0),
+                    else_=1
+                ),
+                BlogProfileComparison.created_at.desc()
+            )
             .all()
         )
     return render_template('actions.html', comparisons=comparisons,all_statuses=all_statuses,selected_statuses=selected_statuses)

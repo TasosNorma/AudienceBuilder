@@ -145,3 +145,30 @@ def redraft_draft(post_id):
     except Exception as e:
         logging.error(f"Error redrafting post: {str(e)}")
         return jsonify({"status": "error", "message": str(e)})
+
+@api.route('/comparison/<int:comparison_id>/get_post', methods=['GET'])
+@login_required
+def get_comparison_post(comparison_id):
+    try:
+        with SessionLocal() as db:
+            comparison = db.query(BlogProfileComparison).get(comparison_id)
+            
+            if not comparison or comparison.user_id != current_user.id:
+                return jsonify({"status": "error", "message": "Comparison not found"}), 404
+                
+            if comparison.post_id:
+                post = db.query(Post).get(comparison.post_id)
+                if post:
+                    return jsonify({
+                        "status": "success",
+                        "post": {
+                            "id": post.id,
+                            "plain_text": post.plain_text,
+                            "markdown_text": post.markdown_text
+                        }
+                    })
+            
+            return jsonify({"status": "error", "message": "No post found for this comparison"}), 404
+    except Exception as e:
+        logging.error(f"Error fetching post data: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500

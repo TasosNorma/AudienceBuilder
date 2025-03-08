@@ -52,6 +52,24 @@
                     </form>
                 </div>
 
+                <!-- Hover Card -->
+                <div id="action-hover-card" class="action-hover-card d-none">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0" id="hover-card-title"></h5>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted">Summary</h6>
+                            <p class="card-text" id="hover-card-summary"></p>
+                            
+                            <div id="hover-card-draft-section" class="d-none">
+                                <h6 class="card-subtitle mb-2 text-muted">Draft</h6>
+                                <p class="card-text" id="hover-card-draft-text"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Comparisons Table -->
                 <div class="card">
                     <div class="card-header">
@@ -61,16 +79,21 @@
                         <table class="table table-hover mb-0">
                             <thead>
                                 <tr>
-                                    <th>Created At</th>
+                                    <th>Title</th>
                                     <th>Status</th>
-                                    <th>URL</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for comparison in comparisons %}
-                                <tr>
-                                    <td>{{ comparison.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <tr class="action-row" 
+                                data-title="{{ comparison.title }}"
+                                data-summary="{{ comparison.short_summary }}"
+                                data-has-post="{{ comparison.post_id is not none }}"
+                                data-comparison-id="{{ comparison.id }}">
+                                    <td class="text-truncate" style="max-width: 300px;">
+                                        {{ comparison.title }}
+                                    </td>
                                     <td>
                                         <span class="badge {% if comparison.status == 'Posted LinkedIn' %}bg-success
                                                          {% elif comparison.status == 'Action Pending to Post' %}bg-info
@@ -79,14 +102,31 @@
                                             {{ comparison.status }}
                                         </span>
                                     </td>
-                                    <td class="text-truncate" style="max-width: 200px;">
-                                        <a href="{{ comparison.url }}" target="_blank">{{ comparison.url }}</a>
-                                    </td>
                                     <td>
-                                        <a href="{{ url_for('tmpl.action_profile', comparison_id=comparison.id) }}" 
-                                           class="btn btn-sm btn-outline-secondary">
-                                            <i class="bi bi-eye"></i> View
-                                        </a>
+                                        <div class="d-flex gap-2">
+                                            {% if comparison.status == 'Action Pending to Draft' %}
+                                            <button class="btn btn-sm btn-warning draft-post" comparison_id="{{ comparison.id}}">
+                                                <i class="bi bi-pencil"></i> Draft
+                                            </button>
+                                            <button class="btn btn-sm btn-warning ignore-comparison" comparison_id="{{ comparison.id}}">
+                                                <i class="bi bi-x-circle"></i> Ignore
+                                            </button>
+                                            {% elif comparison.status == 'Action Pending to Post' %}
+                                            <button class="btn btn-sm btn-info post-comparison" comparison_id="{{ comparison.id}}">
+                                                <i class="bi bi-send"></i> Post
+                                            </button>
+                                            <button class="btn btn-sm btn-info ignore-draft" comparison_id="{{ comparison.id}}">
+                                                <i class="bi bi-x-circle"></i> Ignore
+                                            </button>
+                                            <button class="btn btn-sm btn-info redraft-comparison" comparison_id="{{ comparison.id}}">
+                                                <i class="bi bi-pencil-square"></i> Redraft
+                                            </button>
+                                            {% endif %}
+                                            <a href="{{ url_for('tmpl.action_profile', comparison_id=comparison.id) }}" 
+                                               class="btn btn-sm btn-outline-secondary">
+                                                <i class="bi bi-eye"></i> View
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -98,5 +138,7 @@
         </div>
     </div>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/actions.js') }}"></script>
+    <script>window.csrfToken = "{{ csrf_token() }}"</script>
 </body>
 </html>
