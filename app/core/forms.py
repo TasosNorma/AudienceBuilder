@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, TextAreaField, PasswordField, IntegerField
+from wtforms import StringField, SubmitField, TextAreaField, PasswordField, IntegerField, BooleanField
 from wtforms.validators import DataRequired, URL, Length, Email, EqualTo, NumberRange , Optional, Regexp
 
 class UrlSubmit(FlaskForm):
@@ -52,3 +52,16 @@ class ScheduleForm(FlaskForm):
 class ProfileForm(FlaskForm):
     interests_description = TextAreaField('Interests Description', validators=[DataRequired()])
     submit = SubmitField('Update Profile')
+
+class CreatePromptForm(FlaskForm):
+    name = StringField('Prompt Name', validators=[DataRequired()])
+    template = TextAreaField('Prompt Template', validators=[DataRequired()])
+    input_variables = TextAreaField('Input Variables')
+    submit = SubmitField('Create Prompt')
+
+class EditPromptForm(FlaskForm):
+    name = StringField('Prompt Name', validators=[DataRequired()])
+    template = TextAreaField('Prompt Template', validators=[DataRequired()])
+    input_variables = TextAreaField('Input Variables')
+    active = BooleanField('Active')
+    submit = SubmitField('Save Changes')

@@ -1,7 +1,7 @@
 from flask import render_template, Blueprint, redirect, flash, url_for, request, session
 from flask_login import login_required, current_user, login_user, logout_user
 import os
-from ..core.forms import UrlSubmit, PromptForm, SetupProfileForm,SettingsForm, ScheduleForm,ProfileForm, ArticleCompareForm, LoginForm, RegistrationForm
+from ..core.forms import UrlSubmit, PromptForm, SetupProfileForm,SettingsForm, ScheduleForm,ProfileForm, ArticleCompareForm, LoginForm, RegistrationForm, CreatePromptForm, EditPromptForm
 from ..database.database import SessionLocal
 from ..database.models import Prompt, Profile, User, Post,Schedule, Blog, BlogProfileComparison,ProfileComparison
 import logging
@@ -199,24 +199,49 @@ def draft_profile(post_id):
 def prompts():
     try:
         with SessionLocal() as db:
-            prompt = db.query(Prompt).filter(Prompt.user_id == current_user.id, Prompt.type == 1).first()
-            # Remove the ### Suffix_ of the prompt. These are the {Primary} and {Secondary} Articles.
-            modified_prompt = prompt
-            parts = modified_prompt.template.split("### Suffix_")
-            editable_template = parts[0] if len(parts) >1 else ''
-            modified_prompt.template = editable_template
-            form = PromptForm(obj=modified_prompt)
-            # Change the name and the template of the prompt
+            prompts_list = db.query(Prompt).filter(
+                Prompt.user_id == current_user.id, 
+                Prompt.type == 1
+            ).order_by(Prompt.created_at.desc()).all()
+            
+            return render_template('prompts.html', prompts=prompts_list)
+    except Exception as e:
+        flash(f'Error retrieving prompts: {str(e)}', 'error')
+        return render_template('prompts.html', prompts=[])
+
+@tmpl.route('/prompt/<int:prompt_id>', methods=['GET', 'POST'])
+@login_required
+def prompt_profile(prompt_id):
+    form = EditPromptForm()
+    try:
+        with SessionLocal() as db:
+            prompt = db.query(Prompt).filter(
+                Prompt.id == prompt_id, 
+                Prompt.user_id == current_user.id
+            ).first()
+            
+            if not prompt:
+                flash('Prompt not found or access denied', 'error')
+                return redirect(url_for('tmpl.prompts'))
+            
+            
+            if request.method == 'GET':
+                form = EditPromptForm(obj=prompt)
+            
+            # Handle form submission
             if form.validate_on_submit():
                 prompt.name = form.name.data
-                prompt.template = f"{form.template.data.strip()} \n ### Suffix_ {parts[1]}"
+                prompt.template = form.template.data
+                prompt.input_variables = form.input_variables.data
+                prompt.is_active = form.active.data
                 db.commit()
                 flash('Prompt updated successfully', 'success')
-                return redirect(url_for('tmpl.prompts'))
+                return redirect(url_for('tmpl.prompt_profile', prompt_id=prompt_id))
+                
+            return render_template('prompt_profile.html', form=form, prompt=prompt)
     except Exception as e:
         flash(f'Error updating prompt: {str(e)}', 'error')
         return redirect(url_for('tmpl.prompts'))
-    return render_template('prompts.html', form=form)
    
 @tmpl.route('/profile', methods=['GET', 'POST'])
 @login_required

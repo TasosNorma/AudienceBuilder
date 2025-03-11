@@ -256,8 +256,8 @@ if __name__ == "__main__":
         with SessionLocal() as db:
             user = db.query(User).get(30)  # Using a test user ID
             processor = SyncAsyncContentProcessor(user)
-            summary = processor.is_article_relevant_short_summary("This is a test summary")
-            print(summary)
+            article = processor.extract_article_content("https://www.snowflake.com/en/blog/empowering-growth-through-training-enablement/")
+            print(article)
     except Exception as e:
         print(f"Error occurred: {e}")
 

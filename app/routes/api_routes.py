@@ -106,7 +106,6 @@ def redraft_comparison(comparison_id):
         logging.error(f"Error re-drafting comparison {comparison_id}: {str(e)}")
         return jsonify({"status": "error", "message": str(e)})
 
-
 @api.route('/draft/<int:post_id>/post', methods=['POST'])
 @login_required
 def post_draft(post_id):
