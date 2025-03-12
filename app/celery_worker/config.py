@@ -2,12 +2,13 @@ import os
 from celery import Celery
 from kombu import Queue, Exchange
 from dotenv import load_dotenv
-
+import logging
 # Load environment variables from .env file
 load_dotenv()
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = 'db+' + os.getenv('DATABASE_URL')
 beat_dburi = os.getenv('DATABASE_URL')
+
 
 celery_app = Celery(
     'content_processor',     # Name of application
@@ -37,7 +38,8 @@ celery_app.conf.update(
         'app.celery_worker.tasks.blog_analyse': {'queue': 'content_processing'},
         'app.celery_worker.tasks.generate_linkedin_informative_post_from_comparison': {'queue': 'content_processing'},
         'app.celery_worker.tasks.redraft_linkedin_post_from_comparison': {'queue': 'content_processing'},
-        'app.celery_worker.tasks.redraft_post_task': {'queue': 'content_processing'}
+        'app.celery_worker.tasks.redraft_post_task': {'queue': 'content_processing'},
+        'app.celery_worker.tasks.comparison_draft': {'queue': 'content_processing'}
     },
     
     # Task execution settings

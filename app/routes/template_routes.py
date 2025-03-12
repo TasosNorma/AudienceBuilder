@@ -198,13 +198,14 @@ def draft_profile(post_id):
 @login_required
 def prompts():
     try:
+        form = CreatePromptForm() 
         with SessionLocal() as db:
             prompts_list = db.query(Prompt).filter(
                 Prompt.user_id == current_user.id, 
                 Prompt.type == 1
             ).order_by(Prompt.created_at.desc()).all()
             
-            return render_template('prompts.html', prompts=prompts_list)
+            return render_template('prompts.html', prompts=prompts_list, form=form)
     except Exception as e:
         flash(f'Error retrieving prompts: {str(e)}', 'error')
         return render_template('prompts.html', prompts=[])
@@ -242,7 +243,34 @@ def prompt_profile(prompt_id):
     except Exception as e:
         flash(f'Error updating prompt: {str(e)}', 'error')
         return redirect(url_for('tmpl.prompts'))
-   
+
+@tmpl.route('/create_prompt', methods=['GET', 'POST'])
+@login_required
+def create_prompt():
+    form = CreatePromptForm()
+    
+    if form.validate_on_submit():
+        try:
+            with SessionLocal() as db:
+                new_prompt = Prompt(
+                    type=1,  # Type 1 for post generating
+                    name=form.name.data,
+                    user_id=current_user.id,
+                    template=form.template.data,
+                    input_variables=form.input_variables.data,
+                    is_active=True
+                )
+                db.add(new_prompt)
+                db.commit()
+                flash('Prompt created successfully!', 'success')
+                return redirect(url_for('tmpl.prompts'))
+        except Exception as e:
+            flash(f'Error creating prompt: {str(e)}', 'error')
+            return redirect(url_for('tmpl.prompts'))
+    
+    return redirect(url_for('tmpl.prompts'))
+
+
 @tmpl.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():

@@ -41,6 +41,20 @@ class SyncAsyncContentProcessor:
         except Exception as e:
             logging.error(f"Error setting up chain: {str(e)}")
             raise e
+    
+    def setup_chain_from_prompt_id(self, prompt_id:int,model_name:str):
+        try:
+            with SessionLocal() as db:
+                self.prompt = db.query(Prompt).get(prompt_id)
+            self.prompt_template = PromptTemplate(
+                template=self.prompt.template,
+                input_variables=self.prompt.input_variables
+                )
+            self.llm = self.setup_llm(model_name)
+            self.post_chain = self.prompt_template | self.llm
+        except Exception as e:
+            logging.error(f"Error setting up chain: {str(e)}")
+            raise e
         
     def setup_llm(self,openai_llm_model_name:str):
         self.llm = ChatOpenAI(
@@ -60,6 +74,17 @@ class SyncAsyncContentProcessor:
             logging.error(f"Error processing URL {url}: {str(e)}")
             raise e
     
+    def draft(self, url:str, prompt_id:int,model_name:str='gpt-4o'):
+        try:
+            self.article = self.extract_article_content(url)
+            self.setup_chain_from_prompt_id(prompt_id,model_name)
+            self.result = self.post_chain.invoke({"article": self.article}).content
+            return self.result
+        except Exception as e:
+            logging.error(f"Error processing URL {url}: {str(e)}")
+            raise e
+    
+
     def is_article_relevant_short_summary(self, short_summary:str) -> bool:
         try:
             with SessionLocal() as db:

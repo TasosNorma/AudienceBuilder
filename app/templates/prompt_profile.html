@@ -79,8 +79,17 @@
                             {{ form.input_variables(class_="form-control", style="height: 100px;") }}
                         </div>
                         <div class="mb-3">
-                            {{ form.active.label(class_="form-label") }}
-                            {{ form.active(class_="form-check-input") }}
+                            <label class="form-label">Status</label>
+                            <div class="d-flex align-items-center">
+                                <select name="active" class="form-select">
+                                    <option value="1" {% if prompt.is_active %}selected{% endif %}>Active</option>
+                                    <option value="0" {% if not prompt.is_active %}selected{% endif %}>Inactive</option>
+                                </select>
+                                <span class="ms-3 badge {% if prompt.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ 'Active' if prompt.is_active else 'Inactive' }}
+                                </span>
+                            </div>
+                            <small class="form-text text-muted">Change the prompt status</small>
                         </div>
                         <div class="d-grid">
                             {{ form.submit(class_="btn btn-primary btn-lg") }}

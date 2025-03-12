@@ -1,12 +1,12 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from ..database.database import SessionLocal
-from ..database.models import BlogProfileComparison,Post
+from ..database.models import BlogProfileComparison,Post, Prompt
 import logging
 import os
 import secrets
 from ..core.helper_handlers import Schedule_Handler, Blog_Profile_Comparison_Handler, LinkedIn_Client_Handler
-from ..celery_worker.tasks import generate_linkedin_informative_post_from_comparison, redraft_linkedin_post_from_comparison, redraft_post_task
+from ..celery_worker.tasks import generate_linkedin_informative_post_from_comparison, redraft_linkedin_post_from_comparison, redraft_post_task, comparison_draft
 
 
 
@@ -65,11 +65,14 @@ def post_comparison(comparison_id):
             "message": str(e)
         })
 
-@api.route('/comparison/<int:comparison_id>/draft', methods=['POST'])
+@api.route('/comparison/draft', methods=['POST'])
 @login_required
-def draft_comparison(comparison_id):
+def draft_comparison():
     try:
-        generate_linkedin_informative_post_from_comparison.delay(comparison_id = comparison_id, user_id = current_user.id )
+        data = request.get_json()
+        comparison_id = data.get('comparison_id')
+        prompt_id = data.get('prompt_id')
+        comparison_draft(comparison_id = comparison_id, prompt_id = prompt_id, user_id = current_user.id)
         return jsonify({
             "status": "success"
         })
@@ -165,9 +168,44 @@ def get_comparison_post(comparison_id):
                             "plain_text": post.plain_text,
                             "markdown_text": post.markdown_text
                         }
-                    })
+                    }), 200
             
             return jsonify({"status": "error", "message": "No post found for this comparison"}), 404
     except Exception as e:
         logging.error(f"Error fetching post data: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
+    
+@api.route('/user/prompts', methods=['GET'])
+@login_required
+def get_user_prompts():
+    try:
+        prompt_type = request.args.get('type', type=int)
+        
+        with SessionLocal() as db:
+            prompts = db.query(Prompt).filter(
+                Prompt.user_id == current_user.id,
+                Prompt.is_active == True
+            )
+            if not prompts.first():
+                return jsonify({"status": "error", "message": "No prompts found"}), 404
+            
+            if prompt_type:
+                prompts = prompts.filter(Prompt.type == prompt_type)
+                
+            prompts = prompts.all()
+            
+            result = [{
+                "id": prompt.id,
+                "name": prompt.name,
+            } for prompt in prompts]
+            
+            return jsonify({
+                "status": "success",
+                "prompts": result
+            }), 200
+    except Exception as e:
+        logging.error(f"Error fetching user prompts: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
