@@ -83,6 +83,16 @@ class SyncAsyncContentProcessor:
             logging.error(f"Error in comparing article relevance to profile: {str(e)}")
             raise e
     
+    def draft(self, url:str, prompt_id:int,model_name:str='gpt-4o'):
+        try:
+            self.article = self.extract_article_content(url)
+            self.setup_chain_from_prompt_id(prompt_id,model_name)
+            self.result = self.post_chain.invoke({"article": self.article}).content
+            return self.result
+        except Exception as e:
+            logging.error(f"Error processing URL {url}: {str(e)}")
+            raise e
+    
     def write_small_summary(self, url:str):
         try:
             loop = asyncio.new_event_loop()
