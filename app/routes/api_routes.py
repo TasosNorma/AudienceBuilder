@@ -6,7 +6,7 @@ import logging
 import os
 import secrets
 from ..core.helper_handlers import Schedule_Handler, Blog_Profile_Comparison_Handler, LinkedIn_Client_Handler
-from ..celery_worker.tasks import generate_linkedin_informative_post_from_comparison, redraft_linkedin_post_from_comparison, redraft_post_task, comparison_draft
+from ..celery_worker.tasks import redraft_linkedin_post_from_comparison, redraft_post_task, comparison_draft, draft_draft
 
 
 
@@ -72,7 +72,12 @@ def draft_comparison():
         data = request.get_json()
         comparison_id = data.get('comparison_id')
         prompt_id = data.get('prompt_id')
-        comparison_draft(comparison_id = comparison_id, prompt_id = prompt_id, user_id = current_user.id)
+        if not comparison_id or not prompt_id:
+            return jsonify({
+                "status": "error",
+                "message": "Comparison ID and prompt ID are required"
+            })
+        comparison_draft.delay(comparison_id = comparison_id, prompt_id = prompt_id, user_id = current_user.id)
         return jsonify({
             "status": "success"
         })
@@ -98,7 +103,6 @@ def ignore_draft_comparison(comparison_id):
             "message": str(e)
         })
 
-
 @api.route('/comparison/<int:comparison_id>/redraft', methods=['POST'])
 @login_required
 def redraft_comparison(comparison_id):
@@ -108,6 +112,33 @@ def redraft_comparison(comparison_id):
     except Exception as e:
         logging.error(f"Error re-drafting comparison {comparison_id}: {str(e)}")
         return jsonify({"status": "error", "message": str(e)})
+
+@api.route('/draft/draft', methods=['POST'])
+@login_required
+def drafts_draft():
+    try:
+        data = request.get_json()
+        url = data.get('url')
+        prompt_id = data.get('prompt_id')
+        # print(url, prompt_id)
+        
+        if not url or not prompt_id:
+            return jsonify({
+                "status": "error",
+                "message": "URL and prompt_id are required"
+            })
+            
+        draft_draft.delay(url=url, prompt_id=prompt_id, user_id=current_user.id)
+        return jsonify({
+            "status": "success",
+            "message": "Draft generation started"
+        })
+    except Exception as e:
+        logging.error(f"Error creating draft: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        })
 
 @api.route('/draft/<int:post_id>/post', methods=['POST'])
 @login_required

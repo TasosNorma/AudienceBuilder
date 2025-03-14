@@ -34,9 +34,14 @@
                 <!-- Action Buttons -->
                 <div class="py-4 d-flex gap-2 justify-content-center">
                     {% if comparison.status == 'Action Pending to Draft' %}
-                    <button class="btn btn-sm btn-warning draft-post" comparison_id="{{ comparison.id}}">
-                        <i class="bi bi-eye"></i> Draft Post
-                    </button>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-warning dropdown-toggle" type="button" id="draftDropdown{{ comparison.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-pencil"></i> Draft Post
+                        </button>
+                        <ul class="dropdown-menu prompt-dropdown" data-comparison-id="{{ comparison.id }}" aria-labelledby="draftDropdown{{ comparison.id }}">
+                            <li><div class="dropdown-item text-center"><div class="spinner-border spinner-border-sm" role="status"></div></div></li>
+                        </ul>
+                    </div>
                     <button class="btn btn-sm btn-warning ignore-comparison" comparison_id="{{ comparison.id}}">
                         <i class="bi bi-eye"></i> Ignore
                     </button>

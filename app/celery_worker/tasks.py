@@ -9,25 +9,24 @@ import logging
 
 
 @celery_app.task(bind=True)
-def generate_linkedin_informative_post_from_url(self,url:str,user_id:int):
+def draft_draft(self, url:str, prompt_id:int, user_id:int):
     post_id = None
     try:
         with SessionLocal() as db:
             post = Post(
                 user_id=user_id,
                 url=url,
-                status = Post.PROCESSING,
+                status=Post.PROCESSING,
                 created_at_utc=datetime.now(timezone.utc)
             )
             db.add(post)
             db.commit()
-            db.flush() # Ensure that post.id is populated
+            db.flush()
             post_id = post.id
             user = db.query(User).get(user_id)
             processor = SyncAsyncContentProcessor(user)
-            markdown_result = processor.generate_linkedin_informative_post_from_url(url)
+            markdown_result = processor.draft(url=url,prompt_id=prompt_id)
             post.markdown_text = markdown_result
-            # Convert markdown to plain text
             plain_text_result = processor.convert_markdown_to_plain_text(markdown_result)
             post.plain_text = plain_text_result
             post.status = Post.GENERATED
@@ -38,6 +37,7 @@ def generate_linkedin_informative_post_from_url(self,url:str,user_id:int):
             post.status = Post.FAILED
             post.error_message = str(e)
             db.commit()
+        logging.error(f"Error drafting draft: {str(e)}")
         raise e
 
 # Is called by the profile_compare route and creates a profile_comparison object that judges whether or not the url fits the profile.
@@ -72,7 +72,6 @@ def compare_profile_task(self, url: str, user_id: int):
             profile_comparison.status = ProfileComparison.FAILED
             raise e
         db.commit()
-
 
 @celery_app.task(bind=True)
 def generate_linkedin_informative_post_from_comparison(self, user_id:int, comparison_id:int=None):
@@ -166,82 +165,6 @@ def comparison_draft(self, user_id:int, comparison_id:int, prompt_id:int):
             db.commit()
         raise e
 
-
-@celery_app.task(bind=True)
-def redraft_post_task(self, user_id:int, post_id:int):
-    try:
-        with SessionLocal() as db:
-            post = db.query(Post).get(post_id)
-            post.status = Post.REDRAFTING
-            db.commit()
-            url = post.url
-            user = db.query(User).get(user_id)
-            processor = SyncAsyncContentProcessor(user)
-            markdown_result = processor.generate_linkedin_informative_post_from_url(url)
-            post.markdown_text = markdown_result
-            plain_text_result = processor.convert_markdown_to_plain_text(markdown_result)
-            post.plain_text = plain_text_result
-            post.status = Post.GENERATED
-            db.commit()
-            
-    except Exception as e:
-        logging.error(f"Error re-drafting post {post_id}: {str(e)}")
-        with SessionLocal() as db:
-            post = db.query(Post).get(post_id)
-            if post:
-                post.status = Post.FAILED
-                post.error_message = str(e)
-                db.commit()
-        raise e
-
-@celery_app.task(bind=True)
-def redraft_linkedin_post_from_comparison(self, user_id:int, comparison_id:int=None):
-    try:
-        with SessionLocal() as db:
-            comparison = db.query(BlogProfileComparison).get(comparison_id)
-            comparison.status = BlogProfileComparison.STATUS_REDRAFTING
-            url = comparison.url
-            user = db.query(User).get(user_id)
-            
-            # Get the existing post
-            post = db.query(Post).get(comparison.post_id)
-            if not post:
-                raise ValueError(f"No post found for comparison {comparison_id}")
-            
-            # Update post status to reprocessing
-            post.status = Post.PROCESSING
-            db.commit()
-            
-            # Generate new content
-            processor = SyncAsyncContentProcessor(user)
-            markdown_result = processor.generate_linkedin_informative_post_from_url(url)
-            
-            # Update post with new content
-            post.markdown_text = markdown_result
-            # Convert markdown to plain text
-            plain_text_result = processor.convert_markdown_to_plain_text(markdown_result)
-            post.plain_text = plain_text_result
-            post.status = Post.GENERATED
-            comparison.status = BlogProfileComparison.STATUS_ACTION_PENDING_TO_POST
-            db.commit()
-            
-    except Exception as e:
-        logging.error(f"Error re-drafting post for comparison {comparison_id}: {str(e)}")
-        with SessionLocal() as db:
-            comparison = db.query(BlogProfileComparison).get(comparison_id)
-            if comparison:
-                comparison.status = BlogProfileComparison.STATUS_FAILED_ON_DRAFT
-                comparison.error_message = str(e)
-                
-                # Update post status if it exists
-                if comparison.post_id:
-                    post = db.query(Post).get(comparison.post_id)
-                    if post:
-                        post.status = Post.FAILED
-                        post.error_message = str(e)
-# 1. Is called either from blogs_Handler.create_blog_analyse_session or directly from the scheduler
-# 2. Creates a Blog Analysis, extracts all articles from the blog
-# 3. Checks if Articles have been already processed before, if not, it finds out if they are relevant to the user profile
 @celery_app.task(bind=True)
 def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
     try:
