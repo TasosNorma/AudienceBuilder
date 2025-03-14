@@ -123,9 +123,6 @@
                                             <button class="btn btn-sm btn-info ignore-draft" comparison_id="{{ comparison.id}}">
                                                 <i class="bi bi-x-circle"></i> Ignore
                                             </button>
-                                            <button class="btn btn-sm btn-info redraft-comparison" comparison_id="{{ comparison.id}}">
-                                                <i class="bi bi-pencil-square"></i> Redraft
-                                            </button>
                                             {% endif %}
                                             <a href="{{ url_for('tmpl.action_profile', comparison_id=comparison.id) }}" 
                                                class="btn btn-sm btn-outline-secondary">

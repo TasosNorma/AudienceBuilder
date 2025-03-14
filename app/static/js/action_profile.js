@@ -159,29 +159,3 @@ document.querySelectorAll('.ignore-draft').forEach(button => {
         }
     });
 });
-
-document.querySelectorAll('.redraft-comparison').forEach(button => {
-    button.addEventListener('click', async function() {
-        const comparison_id = this.getAttribute('comparison_id');
-        if (confirm('Are you sure you want to re-draft this post?')) {
-            try {
-                const response = await fetch(`/comparison/${comparison_id}/redraft`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': window.csrfToken  
-                    }
-                });
-                const result = await response.json();
-                if (result.status === 'success') {
-                    window.location.reload();
-                } else {
-                    alert(result.message);
-                }
-            } catch (error) {
-                console.error('Error details:', error);
-                alert(`Error re-drafting post: ${error.message}`);
-            }
-        }
-    });
-});

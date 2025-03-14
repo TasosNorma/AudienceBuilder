@@ -64,27 +64,6 @@ class SyncAsyncContentProcessor:
             max_retries=3)
         return self.llm
 
-    def generate_linkedin_informative_post_from_url(self, url:str):
-        try:
-            self.article = self.extract_article_content(url)
-            self.setup_chain(Prompt.NAME_LINKEDININFORMATIVEPOSTGENERATOR,'gpt-4o')
-            self.result = self.post_chain.invoke({"article": self.article}).content
-            return self.result
-        except Exception as e:
-            logging.error(f"Error processing URL {url}: {str(e)}")
-            raise e
-    
-    def draft(self, url:str, prompt_id:int,model_name:str='gpt-4o'):
-        try:
-            self.article = self.extract_article_content(url)
-            self.setup_chain_from_prompt_id(prompt_id,model_name)
-            self.result = self.post_chain.invoke({"article": self.article}).content
-            return self.result
-        except Exception as e:
-            logging.error(f"Error processing URL {url}: {str(e)}")
-            raise e
-    
-
     def is_article_relevant_short_summary(self, short_summary:str) -> bool:
         try:
             with SessionLocal() as db:

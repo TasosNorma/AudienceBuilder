@@ -103,15 +103,6 @@ def ignore_draft_comparison(comparison_id):
             "message": str(e)
         })
 
-@api.route('/comparison/<int:comparison_id>/redraft', methods=['POST'])
-@login_required
-def redraft_comparison(comparison_id):
-    try:
-        redraft_linkedin_post_from_comparison.delay(current_user.id, comparison_id)
-        return jsonify({"status": "success", "message": "Re-drafting post..."})
-    except Exception as e:
-        logging.error(f"Error re-drafting comparison {comparison_id}: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)})
 
 @api.route('/draft/draft', methods=['POST'])
 @login_required
@@ -163,20 +154,6 @@ def post_draft(post_id):
         return jsonify({"status": "success", "message": "Post published to LinkedIn"})
     except Exception as e:
         logging.error(f"Error posting draft: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)})
-
-@api.route('/draft/<int:post_id>/redraft', methods=['POST'])
-@login_required
-def redraft_draft(post_id):
-    try:
-        with SessionLocal() as db:
-            post = db.query(Post).filter(Post.id == post_id, Post.user_id == current_user.id).first()
-            if not post:
-                return jsonify({"status": "error", "message": "Post not found"})
-            redraft_post_task.delay(current_user.id, post_id)
-        return jsonify({"status": "success", "message": "Re-drafting post..."})
-    except Exception as e:
-        logging.error(f"Error redrafting post: {str(e)}")
         return jsonify({"status": "error", "message": str(e)})
 
 @api.route('/comparison/<int:comparison_id>/get_post', methods=['GET'])

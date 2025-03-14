@@ -22,9 +22,6 @@
                         <h2 class="h4 mb-0">Draft Details</h2>
                         <div>
                             {% if post.status == 'Generated' %}
-                            <button class="btn btn-warning btn-sm me-2 redraftBtn" post_id="{{ post.id }}">
-                                <i class="bi bi-pencil"></i> Re-draft
-                            </button>
                             <button class="btn btn-success btn-sm me-2 postBtn" post_id="{{ post.id }}">
                                 <i class="bi bi-linkedin"></i> Post to LinkedIn
                             </button>

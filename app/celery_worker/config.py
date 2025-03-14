@@ -33,12 +33,8 @@ celery_app.conf.update(
     
     # Route tasks to specific queues
     task_routes={
-        'app.celery_worker.tasks.generate_linkedin_informative_post_from_url': {'queue': 'content_processing'},
         'app.celery_worker.tasks.compare_profile_task':{'queue':'content_processing'},
         'app.celery_worker.tasks.blog_analyse': {'queue': 'content_processing'},
-        'app.celery_worker.tasks.generate_linkedin_informative_post_from_comparison': {'queue': 'content_processing'},
-        'app.celery_worker.tasks.redraft_linkedin_post_from_comparison': {'queue': 'content_processing'},
-        'app.celery_worker.tasks.redraft_post_task': {'queue': 'content_processing'},
         'app.celery_worker.tasks.comparison_draft': {'queue': 'content_processing'},
         'app.celery_worker.tasks.draft_draft': {'queue': 'content_processing'}
     },

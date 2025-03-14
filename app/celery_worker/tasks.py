@@ -8,9 +8,9 @@ import asyncio
 import logging
 
 
+
 @celery_app.task(bind=True)
 def draft_draft(self, url:str, prompt_id:int, user_id:int):
-    post_id = None
     try:
         with SessionLocal() as db:
             post = Post(
@@ -22,7 +22,6 @@ def draft_draft(self, url:str, prompt_id:int, user_id:int):
             db.add(post)
             db.commit()
             db.flush()
-            post_id = post.id
             user = db.query(User).get(user_id)
             processor = SyncAsyncContentProcessor(user)
             markdown_result = processor.draft(url=url,prompt_id=prompt_id)
@@ -73,52 +72,6 @@ def compare_profile_task(self, url: str, user_id: int):
             raise e
         db.commit()
 
-@celery_app.task(bind=True)
-def generate_linkedin_informative_post_from_comparison(self, user_id:int, comparison_id:int=None):
-    post_id = None
-    try: 
-        with SessionLocal() as db:
-            comparison = db.query(BlogProfileComparison).get(comparison_id)
-            comparison.status = BlogProfileComparison.STATUS_DRAFTING
-            url = comparison.url
-            user = db.query(User).get(user_id)
-            post = Post(
-                user_id=user_id,
-                url=url,
-                status=Post.PROCESSING,
-                created_at_utc=datetime.now(timezone.utc),
-                blog_comparison_id = comparison_id
-            )
-            db.add(post)
-            db.commit()
-            db.flush() # Flushes pending changes to the DB so that post.id is populated.
-            post_id = post.id
-            processor = SyncAsyncContentProcessor(user)
-            markdown_result = processor.generate_linkedin_informative_post_from_url(url)
-            post.markdown_text = markdown_result
-            # Convert markdown to plain text
-            plain_text_result = processor.convert_markdown_to_plain_text(markdown_result)
-            post.plain_text = plain_text_result
-            post.status = Post.GENERATED
-            db.commit()
-            db.flush()
-            # Get a fresh comparison object from the database in order to update it.
-            comparison = db.query(BlogProfileComparison).get(comparison_id)
-            comparison.post_id = post.id
-            comparison.status = BlogProfileComparison.STATUS_ACTION_PENDING_TO_POST
-            db.commit()
-    except Exception as e:
-        logging.error(f"Error processing comparison {comparison_id}  : {str(e)}")
-        with SessionLocal() as db:
-            post = db.query(Post).get(post_id)
-            post.status = Post.FAILED
-            post.error_message = str(e)
-            comparison = db.query(BlogProfileComparison).get(comparison_id)
-            comparison.status = BlogProfileComparison.STATUS_FAILED_ON_DRAFT
-            comparison.error_message = str(e)
-            db.commit()
-        raise e
-    
 @celery_app.task(bind=True)
 def comparison_draft(self, user_id:int, comparison_id:int, prompt_id:int):
     post_id = None
