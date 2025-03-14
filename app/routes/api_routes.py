@@ -6,7 +6,7 @@ import logging
 import os
 import secrets
 from ..core.helper_handlers import Schedule_Handler, Blog_Profile_Comparison_Handler, LinkedIn_Client_Handler
-from ..celery_worker.tasks import redraft_linkedin_post_from_comparison, redraft_post_task, comparison_draft, draft_draft
+from ..celery_worker.tasks import comparison_draft, draft_draft
 
 
 
