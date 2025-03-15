@@ -160,8 +160,8 @@ class User_Handler:
         with SessionLocal() as db:
             try:
                 default_prompt_2 = Prompt(
-                    type=Prompt.TYPE_PROFILECOMPARING,
-                    name=Prompt.NAME_PROFILECOMPARISONPROMPT,
+                    type=Prompt.TYPE_ARTICLE_DEEP_RESEARCH,
+                    name="Profile Comparison",
                     description = 'Compares an article with the profile and returns Yes or No based on Fit.',
                     user_id=user_id,
                     template="""
@@ -185,8 +185,8 @@ class User_Handler:
                     is_active=True
                 )
                 default_prompt_1 = Prompt(
-                    name = Prompt.NAME_LINKEDININFORMATIVEPOSTGENERATOR,
-                    type=Prompt.TYPE_POSTGENERATING,
+                    name = "LinkedIn Informative Post Generator",
+                    type=Prompt.TYPE_ARTICLE,
                     description = 'Generates an informative post for LinkedIn',
                     user_id = user_id,
                     template = """

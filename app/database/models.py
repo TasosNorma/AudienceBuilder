@@ -8,12 +8,8 @@ class Prompt(Base):
     __tablename__ = 'prompts'
 
     #Allowed Types
-    TYPE_POSTGENERATING = 1
-    TYPE_PROFILECOMPARING = 2
-
-    #Allowed Names
-    NAME_LINKEDININFORMATIVEPOSTGENERATOR = "LinkedIn Informative Post Generator"
-    NAME_PROFILECOMPARISONPROMPT = "Profile Comparison"
+    TYPE_ARTICLE = 1
+    TYPE_ARTICLE_DEEP_RESEARCH = 2
 
 
     id = Column(Integer, primary_key=True)
@@ -23,6 +19,7 @@ class Prompt(Base):
     description = Column(Text, nullable=True)
     template = Column(Text, nullable=False)
     input_variables = Column(Text, nullable=True)  # Stored as JSON string
+    deep_research_prompt = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), 
