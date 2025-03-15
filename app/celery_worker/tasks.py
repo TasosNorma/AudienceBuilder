@@ -11,6 +11,7 @@ import logging
 
 @celery_app.task(bind=True)
 def draft_draft(self, url:str, prompt_id:int, user_id:int):
+    post_id = None
     try:
         with SessionLocal() as db:
             post = Post(
@@ -22,6 +23,7 @@ def draft_draft(self, url:str, prompt_id:int, user_id:int):
             db.add(post)
             db.commit()
             db.flush()
+            post_id = post.id
             user = db.query(User).get(user_id)
             processor = SyncAsyncContentProcessor(user)
             markdown_result = processor.draft(url=url,prompt_id=prompt_id)

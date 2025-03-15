@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, TextAreaField, PasswordField, IntegerField, BooleanField
+from wtforms import StringField, SubmitField, TextAreaField, PasswordField, IntegerField, BooleanField, SelectField
 from wtforms.validators import DataRequired, URL, Length, Email, EqualTo, NumberRange , Optional, Regexp
 
 class UrlSubmit(FlaskForm):
@@ -56,7 +56,8 @@ class ProfileForm(FlaskForm):
 class CreatePromptForm(FlaskForm):
     name = StringField('Prompt Name', validators=[DataRequired()])
     template = TextAreaField('Prompt Template', validators=[DataRequired()])
-    input_variables = TextAreaField('Input Variables')
+    type = SelectField('Prompt Type', choices=[('1', 'Article'), ('2', 'Article and Deep Research')])
+    deep_research_prompt = TextAreaField('Deep Research Prompt')
     submit = SubmitField('Create Prompt')
 
 class EditPromptForm(FlaskForm):

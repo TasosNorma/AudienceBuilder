@@ -174,12 +174,6 @@ def drafts():
             .order_by(Post.created_at_utc.desc())\
             .limit(10)\
             .all()
-
-    if form.validate_on_submit():
-        generate_linkedin_informative_post_from_url.delay(form.url.data,current_user.id)
-        flash('Post Generation started. Please wait while we process your request.', 'info')
-        sleep(1) # We do this to make sure that the the record will be created and will be in processing state.
-        return(redirect(url_for('tmpl.drafts')))
     return render_template('drafts.html', form=form, processing_history=processing_history)
 
 @tmpl.route('/draft/<int:post_id>', methods=['GET'])
@@ -202,7 +196,6 @@ def prompts():
         with SessionLocal() as db:
             prompts_list = db.query(Prompt).filter(
                 Prompt.user_id == current_user.id, 
-                Prompt.type == 1
             ).order_by(Prompt.created_at.desc()).all()
             
             return render_template('prompts.html', prompts=prompts_list, form=form)
@@ -252,12 +245,20 @@ def create_prompt():
     if form.validate_on_submit():
         try:
             with SessionLocal() as db:
+                prompt_type = int(request.form.get('type', 1))
+                if prompt_type == 1:
+                    input_variables = '["article"]'
+                elif prompt_type == 2:
+                    input_variables = '["article", "research_results"]'
+                    deep_research_prompt = form.deep_research_prompt.data
+
                 new_prompt = Prompt(
-                    type=1,  # Type 1 for post generating
+                    type=prompt_type,  
                     name=form.name.data,
                     user_id=current_user.id,
                     template=form.template.data,
-                    input_variables=form.input_variables.data,
+                    input_variables=input_variables,
+                    deep_research_prompt=deep_research_prompt if prompt_type == 2 else None,
                     is_active=True
                 )
                 db.add(new_prompt)
