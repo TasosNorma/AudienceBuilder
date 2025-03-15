@@ -23,24 +23,6 @@ class SyncAsyncContentProcessor:
         except Exception as e:
             logging.error(f"Error during SyncAsyncContentProcessor initialization: {str(e)}")
             raise e
-
-    # This method takes prompt and model name and creates the chain to be invoked.
-    def setup_chain(self,prompt_name:str,openai_llm_model_name:str):
-        try:
-            with SessionLocal() as db:
-                self.prompt = db.query(Prompt).filter(
-                    Prompt.name == prompt_name,
-                    Prompt.user_id == self.user.id
-                ).first()
-            self.prompt_template = PromptTemplate(
-                template=self.prompt.template,
-                input_variables=self.prompt.input_variables
-                )
-            self.llm = self.setup_llm(openai_llm_model_name)
-            self.post_chain = self.prompt_template | self.llm
-        except Exception as e:
-            logging.error(f"Error setting up chain: {str(e)}")
-            raise e
     
     def setup_chain_from_prompt_id(self, prompt_id:int,model_name:str):
         try:
@@ -63,22 +45,36 @@ class SyncAsyncContentProcessor:
             timeout=120,
             max_retries=3)
         return self.llm
-
-    def is_article_relevant_short_summary(self, short_summary:str) -> bool:
+    
+    def is_article_relevant_short_summary(self, short_summary:str):
         try:
             with SessionLocal() as db:
                 profile_description = db.query(Profile).filter(
                     Profile.user_id == self.user.id
                 ).first().interests_description
-            
-            # Get article summary
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-            self.setup_chain(Prompt.NAME_PROFILECOMPARISONPROMPT,'gpt-4o-mini')
-            self.result = self.post_chain.invoke({"profile": profile_description, "article": short_summary}).content
-            # Parse result - should be just "Yes" or "No"
-            return self.result.strip().lower() == "yes"
+            self.setup_llm('gpt-4o-mini')
+            prompt = PromptTemplate(
+                template="""You will receive two inputs: a profile description and an article. Your task is to determine if the person described in the profile would find the article relevant, interesting, and suitable for sharing on their social media.
+                You must be very strict: only answer "Yes" if the article strongly aligns with their interests, professional focus, or sharing habits as described in the profile. Otherwise, answer "No".
+
+                Instructions:
+                1. Read the profile carefully to understand the individual's professional background, interests, and the types of content they are likely to share.
+                2. Read the article and assess its topic, tone, and relevance to the profile's interests.
+                3. If the article's content clearly matches the individual's interests or sharing criteria described in the profile, respond with "Yes".
+                4. If it does not, respond with "No".
+                5. Provide no additional commentary—only "Yes" or "No".
+
+                Profile:
+                "{profile}"
+
+                Article:
+                "{article}"
+            """,
+                input_variables=["profile", "article"]
+            )
+            chain = prompt | self.llm
+            response = chain.invoke({"profile": profile_description, "article": short_summary})
+            return response.content.strip().lower() == "yes"
         except Exception as e:
             logging.error(f"Error in comparing article relevance to profile: {str(e)}")
             raise e
@@ -270,7 +266,7 @@ if __name__ == "__main__":
         with SessionLocal() as db:
             user = db.query(User).get(30)  # Using a test user ID
             processor = SyncAsyncContentProcessor(user)
-            article = processor.extract_article_content("https://www.snowflake.com/en/blog/empowering-growth-through-training-enablement/")
+            article = processor.extract_article_content("https://www.bloomberg.com/news/articles/2025-03-03/alibaba-backed-zhipu-raises-140-million-as-deepseek-heats-up-ai?srnd=phx-technology")
             print(article)
     except Exception as e:
         print(f"Error occurred: {e}")
