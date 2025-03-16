@@ -226,8 +226,9 @@ def prompt_profile(prompt_id):
             if form.validate_on_submit():
                 prompt.name = form.name.data
                 prompt.template = form.template.data
-                prompt.input_variables = form.input_variables.data
                 prompt.is_active = form.active.data
+                if prompt.type == Prompt.TYPE_ARTICLE_DEEP_RESEARCH:
+                    prompt.deep_research_prompt = form.deep_research_prompt.data
                 db.commit()
                 flash('Prompt updated successfully', 'success')
                 return redirect(url_for('tmpl.prompt_profile', prompt_id=prompt_id))
