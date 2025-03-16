@@ -79,19 +79,15 @@
                                 </li>
                             </ul>
                             
-                            <!-- Tab Content -->
+                            <<!-- Tab Content -->
                             <div class="tab-content" id="postFormatTabsContent">
                                 <!-- Plain Text Content -->
                                 <div class="tab-pane fade show active" id="plain-content" role="tabpanel" aria-labelledby="plain-tab">
                                     <div class="alert alert-warning mb-3">
                                         <small><i class="bi bi-exclamation-triangle"></i> This is how your post will appear on LinkedIn (without markdown formatting).</small>
                                     </div>
-                                    <div class="card tweet-card mb-3">
-                                        <div class="card-body">
-                                            <div class="d-flex align-items-start">
-                                                <p class="card-text mb-0">{{ post.plain_text|nl2br|safe }}</p>
-                                            </div>
-                                        </div>
+                                    <div class="post-content">
+                                        {{ post.plain_text|nl2br|safe }}
                                     </div>
                                 </div>
 
@@ -100,12 +96,8 @@
                                     <div class="alert alert-info mb-3">
                                         <small><i class="bi bi-info-circle"></i> This is a formatted preview with markdown styling. LinkedIn does not support markdown formatting.</small>
                                     </div>
-                                    <div class="card tweet-card mb-3">
-                                        <div class="card-body">
-                                            <div class="d-flex align-items-start">
-                                                <p class="card-text mb-0">{{ post.markdown_text|markdown|safe }}</p>
-                                            </div>
-                                        </div>
+                                    <div class="post-content">
+                                        {{ post.markdown_text|markdown|safe }}
                                     </div>
                                 </div>
                             </div>

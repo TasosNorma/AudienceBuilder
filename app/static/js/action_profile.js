@@ -7,7 +7,7 @@ document.querySelectorAll('.dropdown-toggle').forEach(button => {
         // Only load prompts if not already loaded
         if (dropdownMenu.querySelector('.spinner-border')) {
             try {
-                const response = await fetch('/user/prompts?type=1');
+                const response = await fetch('/user/prompts');
                 const result = await response.json();
                 
                 if (result.status === 'success') {

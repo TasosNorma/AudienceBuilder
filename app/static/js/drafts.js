@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Only load prompts if not already loaded
         if (promptsLoading) {
             try {
-                const response = await fetch('/user/prompts?type=1');
+                const response = await fetch('/user/prompts');
                 const result = await response.json();
                 
                 // Clear loading spinner

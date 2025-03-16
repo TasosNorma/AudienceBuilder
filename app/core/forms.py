@@ -63,6 +63,6 @@ class CreatePromptForm(FlaskForm):
 class EditPromptForm(FlaskForm):
     name = StringField('Prompt Name', validators=[DataRequired()])
     template = TextAreaField('Prompt Template', validators=[DataRequired()])
-    input_variables = TextAreaField('Input Variables')
+    deep_research_prompt = TextAreaField('Deep Research Prompt')
     active = BooleanField('Active')
     submit = SubmitField('Save Changes')

@@ -8,6 +8,8 @@ import logging
 import json
 from cryptography.fernet import Fernet
 from app.core.scrapfly_crawler import ScrapflyCrawler
+from app.core.helper_handlers import Perplexity_Handler
+
 # This class is the Synchronous content processor
 class SyncAsyncContentProcessor:
 
@@ -33,7 +35,8 @@ class SyncAsyncContentProcessor:
                 input_variables=self.prompt.input_variables
                 )
             self.llm = self.setup_llm(model_name)
-            self.post_chain = self.prompt_template | self.llm
+            self.final_chain = self.prompt_template | self.llm
+        
         except Exception as e:
             logging.error(f"Error setting up chain: {str(e)}")
             raise e
@@ -81,10 +84,50 @@ class SyncAsyncContentProcessor:
     
     def draft(self, url:str, prompt_id:int,model_name:str='gpt-4o'):
         try:
+            with SessionLocal() as db:
+                prompt = db.query(Prompt).get(prompt_id)
+                if prompt.type == Prompt.TYPE_ARTICLE:
+                    return self.draft_article(url,prompt_id,model_name)
+                elif prompt.type == Prompt.TYPE_ARTICLE_DEEP_RESEARCH:
+                    return self.draft_article_and_deep_research(url,prompt_id,model_name)
+                else:
+                    raise ValueError(f"Invalid prompt type: {prompt.type}")
+        except Exception as e:
+            logging.error(f"Error processing URL {url}: {str(e)}")
+            raise e
+    
+    def draft_article_and_deep_research(self, url:str, prompt_id:int, model_name:str='gpt-4o'):
+        try:
+            perplexity_handler = Perplexity_Handler()
             self.article = self.extract_article_content(url)
             self.setup_chain_from_prompt_id(prompt_id,model_name)
-            self.result = self.post_chain.invoke({"article": self.article}).content
+            self.deep_research_prompt = self.create_prompt_for_deep_research(prompt_id,self.article)
+            self.deep_research_result = perplexity_handler.deep_research(self.deep_research_prompt)
+            self.result = self.final_chain.invoke({"article": self.article, "research_results": self.deep_research_result}).content
             return self.result
+        except Exception as e:
+            logging.error(f"Error processing URL {url}: {str(e)}")
+            raise e
+        
+    def draft_article(self, url:str, prompt_id:int, model_name:str='gpt-4o'):
+        try:
+            self.article = self.extract_article_content(url)
+            self.setup_chain_from_prompt_id(prompt_id,model_name)
+            self.result = self.final_chain.invoke({"article": self.article}).content
+            return self.result
+        except KeyError as ke:
+            # Check if this is a variable name mismatch error
+            if "Input to PromptTemplate is missing variables" in str(ke):
+                # Extract the expected variables from the error message
+                error_msg = str(ke)
+                user_friendly_error = (
+                    f"Variable name mismatch in prompt template (ID: {prompt_id}). "
+                    f"The system expects variables named 'article' and 'research_result', but your prompt uses different names. "
+                    f"Please update your prompt template to use {{article}} and {{research_result}} as variable names. "
+                    f"Original error: {error_msg}"
+                )
+                logging.error(user_friendly_error)
+                raise ValueError(user_friendly_error) from ke
         except Exception as e:
             logging.error(f"Error processing URL {url}: {str(e)}")
             raise e
@@ -258,6 +301,23 @@ Provide ONLY the plain text version without any explanations.
         except Exception as e:
             logging.error(f"Error converting markdown to plain text: {str(e)}")
             raise e
+
+    def create_prompt_for_deep_research(self, prompt_id:int, article:str):
+        try:
+            with SessionLocal() as db:
+                prompt = db.query(Prompt).get(prompt_id)
+                self.setup_llm('gpt-4o')
+            prompt_template = PromptTemplate(
+                template=prompt.deep_research_prompt,
+                input_variables=["article"]
+            )
+            chain = prompt_template | self.llm
+            response = chain.invoke({"article": article})
+            return response.content
+        except Exception as e:
+            logging.error(f"Error creating prompt for deep research: {str(e)}")
+            raise e
+            
 
 if __name__ == "__main__":
     from app.database.database import SessionLocal

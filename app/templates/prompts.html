@@ -53,7 +53,7 @@
                                 <tr>
                                     <th>Name</th>
                                     <th>Status</th>
-                                    <th>Input Variables</th>
+                                    <th>Type</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -69,7 +69,7 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <small class="text-muted">{{ prompt.input_variables or 'None' }}</small>
+                                        <small class="text-muted">{{ 'Article' if prompt.type == 1 else 'Article + Research' if prompt.type == 2 else 'None' }}</small>
                                     </td>
                                     <td>
                                         <div class="d-flex gap-2">
@@ -113,13 +113,14 @@
                         </div>
                         <div class="mb-3">
                             <label for="template" class="form-label">Prompt Template</label>
-                            {{ form.template(class="form-control", rows=8, placeholder="Enter your prompt here, reference the article with '{article}' and put it inside the input variables later ") }}
-                            <div class="form-text">Example: "Generate an informative post about {article}."</div>
+                            {{ form.template(class="form-control", rows=8, id="template") }}
+                            <div class="form-text" id="template-example"></div>
                         </div>
                         <div class="mb-3 deep-research-field" style="display: none;">
                             <label for="deep_research_prompt" class="form-label">Deep Research Prompt</label>
                             <textarea name="deep_research_prompt" id="deep_research_prompt" class="form-control" rows="8" placeholder="Enter your deep research prompt here"></textarea>
-                            <div class="form-text">This prompt will be used for deeper research on the article topic.</div>
+                            <div class="form-text">Reference the article with '{article}'.</div>
+                            <div class="form-text">Example: "Write a nice prompt to research the following article: {article}"</div>
                         </div>
                         <div class="d-grid">
                             {{ form.submit(class="btn btn-primary") }}
@@ -145,5 +146,33 @@
     
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Script to handle the template help -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const typeSelect = document.getElementById('type');
+            const deepResearchFields = document.querySelector('.deep-research-field');
+            const templateField = document.getElementById('template');
+            const templateExample = document.getElementById('template-example');
+            
+            // Function to update template placeholder and example
+            function updateTemplateHelp() {
+                if (typeSelect.value === '2') {
+                    templateField.placeholder = "Reference the article with '{article}' and research results with '{research_results}'";
+                    templateExample.textContent = "Example: \"Generate a post about this article {article} and inform it with the results of this research {research_results}\"";
+                    deepResearchFields.style.display = 'block';
+                } else {
+                    templateField.placeholder = "Reference the article with '{article}'";
+                    templateExample.textContent = "Example: \"Generate an informative post about {article}.\"";
+                    deepResearchFields.style.display = 'none';
+                }
+            }
+            
+            // Set initial state
+            updateTemplateHelp();
+            
+            // Update when type changes
+            typeSelect.addEventListener('change', updateTemplateHelp);
+        });
+    </script>
 </body>
 </html>

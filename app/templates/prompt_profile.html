@@ -57,6 +57,8 @@
                             <dd class="col-sm-9">{{ prompt.id }}</dd>
                             <dt class="col-sm-3">Input Variables</dt>
                             <dd class="col-sm-9">{{ prompt.input_variables or 'None' }}</dd>
+                            <dt class="col-sm-3">Type</dt>
+                            <dd class="col-sm-9">{{ 'Article' if prompt.type == 1 else 'Article + Research' if prompt.type == 2 else 'None' }}</dd>
                         </dl>
                     </div>
                 </div>
@@ -74,10 +76,13 @@
                             {{ form.template.label(class_="form-label") }}
                             {{ form.template(class_="form-control", style="height: 400px;") }}
                         </div>
+                        {% if prompt.type == 2 %}
                         <div class="mb-3">
-                            {{ form.input_variables.label(class_="form-label") }}
-                            {{ form.input_variables(class_="form-control", style="height: 100px;") }}
+                            {{ form.deep_research_prompt.label(class_="form-label") }}
+                            {{ form.deep_research_prompt(class_="form-control", style="height: 200px;") }}
+                            <div class="form-text">Reference the article with '{article}''.</div>
                         </div>
+                        {% endif %}
                         <div class="mb-3">
                             <label class="form-label">Status</label>
                             <div class="d-flex align-items-center">

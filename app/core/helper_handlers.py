@@ -159,31 +159,6 @@ class User_Handler:
     def set_default_prompt(self,user_id:int):
         with SessionLocal() as db:
             try:
-                default_prompt_2 = Prompt(
-                    type=Prompt.TYPE_ARTICLE_DEEP_RESEARCH,
-                    name="Profile Comparison",
-                    description = 'Compares an article with the profile and returns Yes or No based on Fit.',
-                    user_id=user_id,
-                    template="""
-                You will receive two inputs: a profile description and an article. Your task is to determine if the person described in the profile would find the article relevant, interesting, and suitable for sharing on their social media.
-                You must be very strict: only answer "Yes" if the article strongly aligns with their interests, professional focus, or sharing habits as described in the profile. Otherwise, answer "No".
-
-                Instructions:
-                1. Read the profile carefully to understand the individual's professional background, interests, and the types of content they are likely to share.
-                2. Read the article and assess its topic, tone, and relevance to the profile's interests.
-                3. If the article's content clearly matches the individual's interests or sharing criteria described in the profile, respond with "Yes".
-                4. If it does not, respond with "No".
-                5. Provide no additional commentary—only "Yes" or "No".
-
-                Profile:
-                "{profile}"
-
-                Article:
-                "{article}"
-                """,
-                    input_variables='["profile", "article"]',
-                    is_active=True
-                )
                 default_prompt_1 = Prompt(
                     name = "LinkedIn Informative Post Generator",
                     type=Prompt.TYPE_ARTICLE,
@@ -212,7 +187,6 @@ class User_Handler:
                 input_variables='["article"]',
                 is_active=True
                 )
-                db.add(default_prompt_2)
                 db.add(default_prompt_1)
                 db.commit()
             except Exception as e:
@@ -351,13 +325,62 @@ class LinkedIn_Client_Handler:
             logging.error(f"Error posting to LinkedIn: {str(e)}")
             raise e
         
-# if __name__ == "__main__":
-#     try:
-#         # Example usage
-#         linkedin = LinkedIn_Client_Handler(26) 
-#         linkedin.post("Test post from LinkedIn API integration")
-#         print("Successfully posted to LinkedIn")
-#     except Exception as e:
-#         print(f"Failed to post: {str(e)}")
+class Perplexity_Handler:
+    def __init__(self) -> None:
+        self.api_key = os.environ.get('PERPLEXITY_API_KEY')
+        if not self.api_key:
+            raise ValueError("PERPLEXITY_API_KEY environment variable is not set")
+        self.api_url = "https://api.perplexity.ai/chat/completions"
+        self.headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+    
+    def deep_research(self, prompt: str) -> str:
+        try:
+            payload = {
+                "model": "sonar-deep-research", 
+                "messages": [
+                    {"role": "system", "content": "Provide detailed and well-researched responses."},
+                    {"role": "user", "content": prompt}
+                ]
+            }
+            
+            response = requests.post(
+                self.api_url,
+                headers=self.headers,
+                json=payload
+            )
+            
+            if response.status_code != 200:
+                logging.error(f"Perplexity API error: {response.status_code} {response.text}")
+                raise Exception(f"Perplexity API error: {response.status_code}")
+                
+            result = response.json()
+            content = result["choices"][0]["message"]["content"]
+        
+            # Remove <think> tags and their contents
+            cleaned_content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+            # Remove any remaining thinking tags if they appear separately
+            cleaned_content = re.sub(r'</?think>', '', cleaned_content)
+            # Trim any extra whitespace that might result from the removal
+            cleaned_content = cleaned_content.strip()
+            
+            return cleaned_content
+            
+        except Exception as e:
+            logging.error(f"Error in Perplexity deep research: {str(e)}")
+            raise e
 
 
+if __name__ == "__main__":
+    try:
+        handler = Perplexity_Handler()
+        test_prompt = "Conduct an in-depth analysis of Omni's recent $69 million Series B funding round. Provide detailed insights into the company's origins, including the founders' backgrounds and their journey in building Omni. Explore the company's mission, key products, and unique value proposition compared to competitors in the business intelligence (BI) industry.\n\nInvestigate the growth trajectory of Omni, including major milestones, previous funding rounds, and significant partnerships. What factors contributed to its ability to secure this funding, and how does its current market position compare to other BI companies like Looker, Mode, ThoughtSpot, or Tableau?\n\nExamine the strategic intent behind this funding round. Why is this happening now? What market trends or technological advancements are driving investment in Omni? How does this funding support its plans for embedded analytics, workforce expansion, and revenue growth?\n\nAssess Omni's competitive landscape, including its industry positioning, customer base, and differentiation. What makes its platform stand out, especially in its approach to ad-hoc analysis, SQL integration, and user-friendliness? How is it leveraging innovations in BI and data visualization?\n\nAre there any geopolitical, macroeconomic, or regulatory factors influencing this funding round? How do investor sentiments reflect broader trends in enterprise software and data analytics?\n\nFinally, why does this funding matter? What implications does it have for the BI industry, startups in enterprise SaaS, and Omni's long-term trajectory? Who are the major investors in this round, and what does their involvement signal about the company's future"
+        print("Test Prompt:")
+        print(test_prompt)
+        response = handler.deep_research(test_prompt)
+        print("Test Response from Perplexity API:")
+        print(response)
+    except Exception as e:
+        print(f"Error testing Perplexity API: {str(e)}")
