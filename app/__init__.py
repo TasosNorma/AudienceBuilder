@@ -28,8 +28,8 @@ def create_app():
         db.close()
         return user
 
-    app.debug = True
-    logging.basicConfig(level=logging.DEBUG)
+    app.debug = False
+    logging.basicConfig(level=logging.WARNING)
     app.register_blueprint(api)
     app.register_blueprint(tmpl)
     app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY")

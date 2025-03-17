@@ -80,6 +80,34 @@
                         </div>
                     {% endif %}
                 </div>
+                <!-- X (Twitter) Authentication -->
+                <div class="card form-card p-4 mb-4">
+                    <h3 class="mb-4">X (Twitter) Integration</h3>
+                    
+                    {% if current_user.x_connected %}
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                            Your X account is connected
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('tmpl.x_disconnect') }}" class="btn btn-outline-danger">
+                                <i class="bi bi-twitter-x me-2"></i>
+                                Disconnect X Account
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                            Connect your X account to post directly to X (Twitter)
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('tmpl.x_auth') }}" class="btn btn-dark">
+                                <i class="bi bi-twitter-x me-2"></i>
+                                Connect X Account
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>

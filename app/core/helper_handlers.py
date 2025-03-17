@@ -10,7 +10,8 @@ import os
 import requests
 from cryptography.fernet import Fernet
 import re
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qsl
+from requests_oauthlib import OAuth1Session
 
 class Schedule_Handler:
     def __init__(self,user_id: int) -> None:
@@ -370,6 +371,127 @@ class Perplexity_Handler:
             
         except Exception as e:
             logging.error(f"Error in Perplexity deep research: {str(e)}")
+            raise e
+
+class X_Auth_Handler:
+    def __init__(self) -> None:
+        self.client_id = os.environ.get('X_CLIENT_ID')
+        self.client_secret = os.environ.get('X_CLIENT_SECRET')
+        self.callback_url = os.environ.get('X_CALLBACK_URL')
+        self.fernet = Fernet(os.environ.get('ENCRYPTION_KEY').encode())
+        
+    def get_request_token(self):
+        """
+        Step 1: Get a request token from X
+        """
+        try:
+            # Create OAuth1 session
+            oauth = OAuth1Session(
+                client_key=os.environ.get('X_API_KEY'),
+                client_secret=os.environ.get('X_KEY_SECRET')
+            )
+            
+            # Get request token
+            request_token_url = "https://api.x.com/oauth/request_token"
+            params = {"oauth_callback": self.callback_url}
+            response = oauth.post(request_token_url, params=params)
+            
+            if response.status_code != 200:
+                logging.error(f"Failed to get request token: {response.text}")
+                raise Exception(f"X API error: {response.status_code}")
+                
+            # Parse response
+            response_params = dict(parse_qsl(response.text))
+            oauth_token = response_params.get('oauth_token')
+            oauth_token_secret = response_params.get('oauth_token_secret')
+            
+            return {
+                'oauth_token': oauth_token,
+                'oauth_token_secret': oauth_token_secret
+            }
+        except Exception as e:
+            logging.error(f"Error getting X request token: {str(e)}")
+            raise e
+    
+    def handle_callback(self, oauth_token, oauth_verifier, user_id):
+        """
+        Step 3: Convert the request token into a usable access token
+        """
+        try:
+            # Create OAuth1 session
+            oauth = OAuth1Session(
+                client_key=os.environ.get('X_API_KEY'),
+                client_secret=os.environ.get('X_KEY_SECRET'),
+                resource_owner_key=oauth_token
+            )
+            
+            # Get access token
+            access_token_url = "https://api.x.com/oauth/access_token"
+            params = {"oauth_verifier": oauth_verifier}
+            response = oauth.post(access_token_url, params=params)
+            
+            if response.status_code != 200:
+                logging.error(f"Failed to get access token: {response.text}")
+                raise Exception(f"X API error: {response.status_code}")
+                
+            # Parse response
+            response_params = dict(parse_qsl(response.text))
+            access_token = response_params.get('oauth_token')
+            access_token_secret = response_params.get('oauth_token_secret')
+            
+            # Store tokens in database
+            with SessionLocal() as db:
+                user = db.query(User).filter(User.id == user_id).first()
+                user.x_access_token = self.fernet.encrypt(access_token.encode()).decode()
+                user.x_access_token_secret = self.fernet.encrypt(access_token_secret.encode()).decode()
+                user.x_connected = True
+                db.commit()
+                
+            return True
+        except Exception as e:
+            logging.error(f"Error handling X callback: {str(e)}")
+            raise e
+
+class X_Client_Handler:
+    def __init__(self, user_id: int) -> None:
+        try:
+            self.user_id = user_id
+            self.fernet = Fernet(os.environ.get('ENCRYPTION_KEY').encode())
+            
+            with SessionLocal() as db:
+                user = db.query(User).filter(User.id == user_id).first()
+                if not user or not user.x_connected or not user.x_access_token:
+                    raise ValueError("User not connected to X or missing access token")
+                
+                self.access_token = self.fernet.decrypt(user.x_access_token.encode()).decode()
+                self.access_token_secret = self.fernet.decrypt(user.x_access_token_secret.encode()).decode()
+                self.screen_name = user.x_screen_name
+            
+            # Create OAuth1 session for API requests
+            self.oauth = OAuth1Session(
+                client_key=os.environ.get('X_API_KEY'),
+                client_secret=os.environ.get('X_KEY_SECRET'),
+                resource_owner_key=self.access_token,
+                resource_owner_secret=self.access_token_secret
+            )
+        except Exception as e:
+            logging.error(f"Error initializing X client: {str(e)}")
+            raise e
+    
+    def post(self, text: str):
+        """Post a tweet to X"""
+        try:
+            url = "https://api.x.com/2/tweets"
+            payload = {"text": text}
+            response = self.oauth.post(url, json=payload)
+            
+            if response.status_code not in [200, 201]:
+                logging.error(f"Failed to post to X: {response.status_code} {response.text}")
+                raise Exception(f"X API error: {response.status_code}")
+            
+            return response.json()
+        except Exception as e:
+            logging.error(f"Error posting to X: {str(e)}")
             raise e
 
 

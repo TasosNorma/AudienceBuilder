@@ -6,7 +6,7 @@ from ..database.database import SessionLocal
 from ..database.models import Prompt, Profile, User, Post,Schedule, Blog, BlogProfileComparison,ProfileComparison
 import logging
 from cryptography.fernet import Fernet
-from ..core.helper_handlers import Schedule_Handler, User_Handler, LinkedIn_Auth_Handler
+from ..core.helper_handlers import Schedule_Handler, User_Handler, LinkedIn_Auth_Handler, X_Auth_Handler
 from flask_wtf.csrf import generate_csrf
 from time import sleep
 from urllib.parse import urlencode
@@ -271,7 +271,6 @@ def create_prompt():
             return redirect(url_for('tmpl.prompts'))
     
     return redirect(url_for('tmpl.prompts'))
-
 
 @tmpl.route('/profile', methods=['GET', 'POST'])
 @login_required
@@ -557,7 +556,82 @@ def linkedin_disconnect():
         logging.error(f"Error disconnecting LinkedIn account: {str(e)}")
         flash(f"Failed to disconnect LinkedIn account: {str(e)}", "error")
         return redirect(url_for('tmpl.settings'))
-    
+
+@tmpl.route('/x/auth', methods=['GET'])
+@login_required
+def x_auth():
+    try:
+        # Create X auth handler
+        x_auth = X_Auth_Handler()
+        
+        # Get request token
+        token_data = x_auth.get_request_token()
+        
+        # Store token secret in session for later use
+        session['x_oauth_token'] = token_data['oauth_token']
+        session['x_oauth_token_secret'] = token_data['oauth_token_secret']
+        
+        # Redirect user to X authorization page
+        authorize_url = f"https://api.x.com/oauth/authorize?oauth_token={token_data['oauth_token']}"
+        return redirect(authorize_url)
+    except Exception as e:
+        logging.error(f"Error during X auth: {str(e)}")
+        flash(f"X authentication failed: {str(e)}", "error")
+        return redirect(url_for('tmpl.settings'))
+
+@tmpl.route('/x/callback', methods=['GET'])
+@login_required
+def x_callback():
+    try:
+        # Get oauth_token and oauth_verifier from request
+        oauth_token = request.args.get('oauth_token')
+        oauth_verifier = request.args.get('oauth_verifier')
+        
+        # Verify oauth_token matches the one we stored in session
+        if oauth_token != session.get('x_oauth_token'):
+            flash('X authentication failed: Invalid token parameter', 'danger')
+            return redirect(url_for('tmpl.settings'))
+        
+        # Clear tokens from session
+        session.pop('x_oauth_token', None)
+        session.pop('x_oauth_token_secret', None)
+        
+        # If the user denied access or there was an error
+        if 'denied' in request.args:
+            flash('X authentication was denied by the user', 'danger')
+            return redirect(url_for('tmpl.settings'))
+        
+        # Handle the callback
+        x_auth = X_Auth_Handler()
+        x_auth.handle_callback(oauth_token, oauth_verifier, current_user.id)
+        
+        flash('X account connected successfully', 'success')
+        return redirect(url_for('tmpl.settings'))
+    except Exception as e:
+        logging.error(f"Error during X callback: {str(e)}")
+        flash(f"X authentication failed: {str(e)}", "error")
+        return redirect(url_for('tmpl.settings'))
+
+@tmpl.route('/x/disconnect')
+@login_required
+def x_disconnect():
+    try:
+        with SessionLocal() as db:
+            user = db.query(User).filter(User.id == current_user.id).first()
+            
+            user.x_access_token = None
+            user.x_access_token_secret = None
+            user.x_connected = False
+
+            db.commit()
+            flash('X account disconnected successfully', 'success')
+        
+        return redirect(url_for('tmpl.settings'))
+    except Exception as e:
+        logging.error(f"Error disconnecting X account: {str(e)}")
+        flash(f"Failed to disconnect X account: {str(e)}", "error")
+        return redirect(url_for('tmpl.settings'))
+
 
 @tmpl.app_template_filter('markdown')
 def markdown_filter(text):

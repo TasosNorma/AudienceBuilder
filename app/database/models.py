@@ -57,6 +57,10 @@ class User(Base,UserMixin):
     linkedin_refresh_token_expires_in = Column(Integer, nullable=True)
     linkedin_scope = Column(String(255), nullable=True)
     linkedin_connected = Column(Boolean, default=False)
+    # X Authentication Fields
+    x_access_token = Column(String(1024), nullable=True)
+    x_access_token_secret = Column(String(1024), nullable=True)
+    x_connected = Column(Boolean, default=False)
         
     def set_password(self, password, method='pbkdf2:sha256'):
         self.password_hash = generate_password_hash(password, method=method)
