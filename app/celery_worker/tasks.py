@@ -26,10 +26,9 @@ def draft_draft(self, url:str, prompt_id:int, user_id:int):
             post_id = post.id
             user = db.query(User).get(user_id)
             processor = SyncAsyncContentProcessor(user)
-            markdown_result = processor.draft(url=url,prompt_id=prompt_id)
-            post.markdown_text = markdown_result
-            plain_text_result = processor.convert_markdown_to_plain_text(markdown_result)
-            post.plain_text = plain_text_result
+            post.markdown_text = processor.draft(url=url,prompt_id=prompt_id)
+            post.plain_text = processor.convert_markdown_to_plain_text(post.markdown_text)
+            post.thread_list_text = processor.convert_markdown_to_tweet_thread(post.markdown_text)
             post.status = Post.GENERATED
             db.commit()
     except Exception as e:
@@ -95,11 +94,9 @@ def comparison_draft(self, user_id:int, comparison_id:int, prompt_id:int):
             db.flush() # Flushes pending changes to the DB so that post.id is populated.
             post_id = post.id
             processor = SyncAsyncContentProcessor(user)
-            markdown_result = processor.draft(url,prompt_id)
-            post.markdown_text = markdown_result
-            # Convert markdown to plain text
-            plain_text_result = processor.convert_markdown_to_plain_text(markdown_result)
-            post.plain_text = plain_text_result
+            post.markdown_text = processor.draft(url,prompt_id)
+            post.plain_text = processor.convert_markdown_to_plain_text(post.markdown_text)
+            post.thread_list_text = processor.convert_markdown_to_tweet_thread(post.markdown_text)
             post.status = Post.GENERATED
             db.commit()
             db.flush()

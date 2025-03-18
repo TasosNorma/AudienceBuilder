@@ -301,6 +301,56 @@ Provide ONLY the plain text version without any explanations.
         except Exception as e:
             logging.error(f"Error converting markdown to plain text: {str(e)}")
             raise e
+    
+    def convert_markdown_to_tweet_thread(self, markdown_text:str):
+        """Convert markdown formatted text to a list of tweets suitable for a Twitter thread."""
+        try:
+            self.setup_llm('gpt-4o-mini')
+            prompt = PromptTemplate(
+                template="""You are tasked with converting markdown text into a well-structured Twitter thread.
+
+    INSTRUCTIONS:
+    1. Break the content into multiple tweets of appropriate length (max 280 characters each)
+    2. Ensure each tweet can stand on its own while maintaining the flow of the thread
+    3. Remove markdown formatting (##, *, _, etc.) but preserve the overall message and structure
+    4. Keep emojis intact
+    5. Format hashtags properly (keep the # symbol)
+    6. Number each tweet in your response as "Tweet 1:", "Tweet 2:", etc.
+    7. Make the first tweet engaging to capture attention
+    8. End the thread with a compelling conclusion or call to action
+    9. Don't sacrifice important information just to fit character limits
+
+    MARKDOWN TEXT:
+    {markdown_text}
+
+    Format your response with each tweet clearly numbered and separated:
+    Tweet 1: [content of first tweet]
+    Tweet 2: [content of second tweet]
+    And so on...
+
+    Provide ONLY the formatted tweets without any explanations.
+                """,
+                input_variables=["markdown_text"]
+            )
+            chain = prompt | self.llm
+            response = chain.invoke({"markdown_text": markdown_text})
+            
+            # Process the response to create a list of tweets
+            tweet_list = []
+            tweet_pattern = r"Tweet \d+:\s*(.*?)(?=Tweet \d+:|$)"
+            
+            import re
+            matches = re.findall(tweet_pattern, response.content, re.DOTALL)
+            
+            for match in matches:
+                tweet_text = match.strip()
+                if tweet_text:  # Only add non-empty tweets
+                    tweet_list.append(tweet_text)
+                    
+            return tweet_list
+        except Exception as e:
+            logging.error(f"Error converting markdown to tweet thread: {str(e)}")
+            raise e
 
     def create_prompt_for_deep_research(self, prompt_id:int, article:str):
         try:
@@ -317,6 +367,7 @@ Provide ONLY the plain text version without any explanations.
         except Exception as e:
             logging.error(f"Error creating prompt for deep research: {str(e)}")
             raise e
+        
             
 
 if __name__ == "__main__":

@@ -478,22 +478,104 @@ class X_Client_Handler:
             logging.error(f"Error initializing X client: {str(e)}")
             raise e
     
-    def post(self, text: str):
-        """Post a tweet to X"""
+    def post_tweet_text(self, text: str, in_reply_to_tweet_id: str = None) -> str:
+        """Post a tweet to X, if in_reply_to_tweet_id is provided, the tweet will be a reply to that tweet"""
         try:
             url = "https://api.x.com/2/tweets"
             payload = {"text": text}
+            if in_reply_to_tweet_id:
+                payload["in_reply_to_tweet_id"] = in_reply_to_tweet_id
             response = self.oauth.post(url, json=payload)
             
             if response.status_code not in [200, 201]:
                 logging.error(f"Failed to post to X: {response.status_code} {response.text}")
                 raise Exception(f"X API error: {response.status_code}")
             
-            return response.json()
+            if response.status_code == 200:
+                tweet_id = response.json().get('data', {}).get('id')
+                return tweet_id
         except Exception as e:
             logging.error(f"Error posting to X: {str(e)}")
             raise e
+    
 
+    def create_thread_text(self, tweets:list) -> None:
+        try:
+            previous_tweet_id = None
+            for tweet in tweets:
+                tweet_id = self.post_tweet(tweet, previous_tweet_id)
+            if tweet_id:
+                previous_tweet_id = tweet_id
+        except Exception as e:
+            logging.error(f"Error creating thread: {str(e)}")
+            raise e
+        
+    def upload_media(self, media_path: str) -> str:
+        try:
+            url = "https://upload.twitter.com/1.1/media/upload.json"
+            
+            # Read the media file
+            with open(media_path, 'rb') as media_file:
+                files = {'media': media_file}
+                response = self.oauth.post(url, files=files)
+            
+            if response.status_code != 200:
+                logging.error(f"Failed to upload media: {response.status_code} {response.text}")
+                raise Exception(f"X API error: {response.status_code}")
+            
+            # Get the media ID from the response
+            media_id = response.json().get('media_id_string')
+            return media_id
+            
+        except Exception as e:
+            logging.error(f"Error uploading media: {str(e)}")
+            raise e
+    
+    def post_tweet_media(self, text: str, media_id: str, in_reply_to_tweet_id: str = None) -> str:
+        """Post a tweet with media attached to X, if in_reply_to_tweet_id is provided, the tweet will be a reply to that tweet"""
+        try:
+            url = "https://api.x.com/2/tweets"
+            payload = {
+                "text": text,
+                "media": {
+                    "media_ids": [media_id]
+                }
+            }
+            if in_reply_to_tweet_id:
+                payload["reply"] = {"in_reply_to_tweet_id": in_reply_to_tweet_id}
+                
+            response = self.oauth.post(url, json=payload)
+            
+            if response.status_code not in [200, 201]:
+                logging.error(f"Failed to post media tweet to X: {response.status_code} {response.text}")
+                raise Exception(f"X API error: {response.status_code}")
+            
+            if response.status_code == 200:
+                tweet_id = response.json().get('data', {}).get('id')
+                return tweet_id
+        except Exception as e:
+            logging.error(f"Error posting media tweet to X: {str(e)}")
+            raise e
+    
+    def create_thread_first_tweet_media(self, first_tweet_text: str, media_id: str, follow_up_tweets: list) -> None:
+        """Create a thread where the first tweet has media and the rest are text-only"""
+        try:
+            # Post the first tweet with media
+            first_tweet_id = self.post_tweet_media(first_tweet_text, media_id)
+            if not first_tweet_id:
+                raise Exception("Failed to post the first tweet with media")
+            
+            # Post the follow-up tweets as replies in the thread
+            previous_tweet_id = first_tweet_id
+            for tweet_text in follow_up_tweets:
+                tweet_id = self.post_tweet_text(tweet_text, previous_tweet_id)
+                if tweet_id:
+                    previous_tweet_id = tweet_id
+        except Exception as e:
+            logging.error(f"Error creating mixed media thread: {str(e)}")
+            raise e
+        
+    
 
 if __name__ == "__main__":
     try:

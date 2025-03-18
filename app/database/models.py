@@ -77,6 +77,7 @@ class Post(Base):
     POSTED_LINKEDIN = 'Posted LinkedIn'
     PROCESSING = 'Processing'
     REDRAFTING = 'Redrafting'
+    POSTED_X = 'Posted X'
     
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
@@ -89,6 +90,7 @@ class Post(Base):
     blog_comparison_id = Column(Integer, ForeignKey('blog_profile_comparisons.id'),nullable=True)
     markdown_text = Column(Text, nullable=True)  
     plain_text = Column(Text, nullable=True) 
+    thread_list_text = Column(Text, nullable=True)
 
 class Schedule(Base):
     __tablename__ = 'schedules'
@@ -158,7 +160,8 @@ class BlogProfileComparison(Base):
     STATUS_INGNORED_COMPARISON = 'Ignored Comparison' # Chose to ingore comparison and not draft
     STATUS_ACTION_PENDING_TO_POST = 'Action Pending to Post' # Drafting was completed and pending another action, to post or ignore
     STATUS_INGORED_DRAFT = 'Ingored Draft' # Ingored the Draft
-    STATUS_POSTED_LINKEDIN = 'Posted LinkedIn' # Posted
+    STATUS_POSTED_LINKEDIN = 'Posted LinkedIn' # Posted to LinkedIn
+    STATUS_POSTED_X = 'Posted X' # Posted to X
     STATUS_FAILED_ON_DRAFT = 'Failed on Draft' # Failed while generating draft
     STATUS_FAILED = 'Failed' #This is on random failures not attributed to important tasks
 

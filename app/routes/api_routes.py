@@ -5,7 +5,7 @@ from ..database.models import BlogProfileComparison,Post, Prompt
 import logging
 import os
 import secrets
-from ..core.helper_handlers import Schedule_Handler, Blog_Profile_Comparison_Handler, LinkedIn_Client_Handler
+from ..core.helper_handlers import Schedule_Handler, Blog_Profile_Comparison_Handler, LinkedIn_Client_Handler, X_Client_Handler
 from ..celery_worker.tasks import comparison_draft, draft_draft
 
 
@@ -217,3 +217,57 @@ def get_user_prompts():
             "status": "error",
             "message": str(e)
         }), 500
+    
+
+@api.route('/draft/post_thread', methods=['POST'])
+@login_required
+def post_thread():
+    try:
+        data = request.get_json()
+        post_id = data.get('post_id')
+        
+        if not post_id:
+            return jsonify({
+                "status": "error",
+                "message": "Post ID is required"
+            }), 400
+            
+        with SessionLocal() as db:
+            post = db.query(Post).filter(Post.id == post_id, Post.user_id == current_user.id).first()
+            if not post:
+                return jsonify({"status": "error", "message": "Post not found"}), 404
+            
+            # Check if post has thread content
+            if not post.thread_list_text:
+                return jsonify({"status": "error", "message": "No thread content available for this post"}), 400
+            
+            # Check if user is connected to X
+            if not current_user.x_connected:
+                return jsonify({"status": "error", "message": "Please connect your X account first"}), 403
+                
+            import json
+            thread_list = json.loads(post.thread_list_text)
+            
+            if not thread_list or not isinstance(thread_list, list) or len(thread_list) == 0:
+                return jsonify({"status": "error", "message": "Invalid thread content"}), 400
+            
+            # Initialize X client and post thread
+            x_client = X_Client_Handler(current_user.id)
+            x_client.create_thread_text(thread_list)
+            
+            # Update post status
+            post.status = Post.POSTED_X
+            
+            # If post is linked to a comparison, update comparison status too
+            if post.blog_comparison_id:
+                Blog_Profile_Comparison_Handler.update_comparison_status(
+                    post.blog_comparison_id, 
+                    BlogProfileComparison.STATUS_POSTED_X,
+                    user_id=current_user.id
+                )
+            db.commit()
+            
+        return jsonify({"status": "success", "message": "Thread posted to X successfully"})
+    except Exception as e:
+        logging.error(f"Error posting thread: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
