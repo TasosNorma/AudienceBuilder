@@ -15,6 +15,7 @@ import secrets
 import markdown
 import re
 from sqlalchemy import case
+import json
 
 tmpl = Blueprint('tmpl', __name__)
 fernet = Fernet(os.environ['ENCRYPTION_KEY'].encode())
@@ -648,3 +649,13 @@ def nl2br_filter(text):
     if not text:
         return ""
     return text.replace('\n', '<br>')
+
+@tmpl.app_template_filter('parse_json')
+def parse_json_filter(text):
+    """Parse JSON string into Python object"""
+    if not text:
+        return []
+    try:
+        return json.loads(text)
+    except:
+        return []

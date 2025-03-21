@@ -106,11 +106,11 @@ document.querySelectorAll('.ignore-comparison').forEach(button => {
     });
 });
 
-// Add event listener for post draft
-document.querySelectorAll('.post-comparison').forEach(button => {
+// Add event listeners for LinkedIn and X posting
+document.querySelectorAll('.post-linkedin').forEach(button => {
     button.addEventListener('click', async function() {
         const comparison_id = this.getAttribute('comparison_id');
-        if (confirm('Are you sure you want to ignore the draft?')) {
+        if (confirm('Are you sure you want to post this draft to LinkedIn?')) {
             try {
                 const response = await fetch(`/comparison/${comparison_id}/post`, {
                     method: 'POST',
@@ -127,7 +127,51 @@ document.querySelectorAll('.post-comparison').forEach(button => {
                 }
             } catch (error) {
                 console.error('Error details:', error);
-                alert(`Error drafting post: ${error.message}`);
+                alert(`Error posting to LinkedIn: ${error.message}`);
+            }
+        }
+    });
+});
+
+document.querySelectorAll('.post-x').forEach(button => {
+    button.addEventListener('click', async function() {
+        const comparison_id = this.getAttribute('comparison_id');
+        if (confirm('Are you sure you want to post this draft to X?')) {
+            try {
+                // First get the post ID associated with this comparison
+                const postResponse = await fetch(`/comparison/${comparison_id}/get_post`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const postResult = await postResponse.json();
+                
+                if (postResult.status !== 'success') {
+                    throw new Error(postResult.message || 'Failed to get post data');
+                }
+                
+                // Now post the thread to X
+                const response = await fetch('/draft/post_thread_x', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': window.csrfToken  
+                    },
+                    body: JSON.stringify({
+                        post_id: postResult.post.id
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.status === 'success') {
+                    window.location.reload();
+                } else {
+                    alert(result.message);
+                }
+            } catch (error) {
+                console.error('Error details:', error);
+                alert(`Error posting to X: ${error.message}`);
             }
         }
     });

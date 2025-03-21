@@ -465,7 +465,6 @@ class X_Client_Handler:
                 
                 self.access_token = self.fernet.decrypt(user.x_access_token.encode()).decode()
                 self.access_token_secret = self.fernet.decrypt(user.x_access_token_secret.encode()).decode()
-                self.screen_name = user.x_screen_name
             
             # Create OAuth1 session for API requests
             self.oauth = OAuth1Session(
@@ -484,16 +483,20 @@ class X_Client_Handler:
             url = "https://api.x.com/2/tweets"
             payload = {"text": text}
             if in_reply_to_tweet_id:
-                payload["in_reply_to_tweet_id"] = in_reply_to_tweet_id
+                payload["reply"] = {"in_reply_to_tweet_id": in_reply_to_tweet_id}
             response = self.oauth.post(url, json=payload)
-            
+            response_json = response.json()
+
+            if "errors" in response_json:
+                errors = response_json.get("errors",[])
+                raise Exception(f"X API error: {response.status_code} - {errors}")
             if response.status_code not in [200, 201]:
-                logging.error(f"Failed to post to X: {response.status_code} {response.text}")
-                raise Exception(f"X API error: {response.status_code}")
+                error_obj = response.text
+                raise Exception(f"X API error: {response.status_code} - {error_obj}")
             
-            if response.status_code == 200:
-                tweet_id = response.json().get('data', {}).get('id')
-                return tweet_id
+            # Extract tweet ID from the response
+            tweet_id = response_json.get('data', {}).get('id')
+            return tweet_id
         except Exception as e:
             logging.error(f"Error posting to X: {str(e)}")
             raise e
@@ -503,9 +506,7 @@ class X_Client_Handler:
         try:
             previous_tweet_id = None
             for tweet in tweets:
-                tweet_id = self.post_tweet(tweet, previous_tweet_id)
-            if tweet_id:
-                previous_tweet_id = tweet_id
+                previous_tweet_id = self.post_tweet_text(tweet, previous_tweet_id)
         except Exception as e:
             logging.error(f"Error creating thread: {str(e)}")
             raise e
@@ -519,7 +520,7 @@ class X_Client_Handler:
                 files = {'media': media_file}
                 response = self.oauth.post(url, files=files)
             
-            if response.status_code != 200:
+            if response.status_code != 200 and response.status_code != 201:
                 logging.error(f"Failed to upload media: {response.status_code} {response.text}")
                 raise Exception(f"X API error: {response.status_code}")
             
@@ -575,16 +576,55 @@ class X_Client_Handler:
             logging.error(f"Error creating mixed media thread: {str(e)}")
             raise e
         
-    
+    def check_endpoint_rate_limit(self, endpoint: str) -> dict:
+        """
+        Get the current rate limit status for a specific endpoint
+        
+        Args:
+            endpoint: The endpoint to check, e.g., "tweets", "users", etc.
+        
+        Returns:
+            A dictionary with limit, remaining, and reset time information
+        """
+        try:
+            # Map of endpoints to sample API calls that will return rate limit info
+            endpoint_urls = {
+                "tweets": "https://api.x.com/2/tweets"
+                # Add more endpoints as needed
+            }
+            
+            if endpoint not in endpoint_urls:
+                raise ValueError(f"Endpoint {endpoint} not supported for rate limit checking")
+                
+            url = endpoint_urls[endpoint]
+            response = self.oauth.post(url)
+            
+            # Extract rate limit headers
+            limit = response.headers.get('x-rate-limit-limit')
+            remaining = response.headers.get('x-rate-limit-remaining')
+            reset = response.headers.get('x-rate-limit-reset')
+            
+            # Format the reset time to make it more readable
+            reset_time = datetime.fromtimestamp(int(reset)) if reset else None
+            
+            rate_limit_info = {
+                "endpoint": endpoint,
+                "limit": limit,
+                "remaining": remaining,
+                "reset_epoch": reset,
+                "reset_time": reset_time,
+                "status_code": response.status_code
+            }
+            
+            return rate_limit_info
+        except Exception as e:
+            logging.error(f"Error checking rate limit for {endpoint}: {str(e)}")
+            raise e
 
 if __name__ == "__main__":
     try:
-        handler = Perplexity_Handler()
-        test_prompt = "Conduct an in-depth analysis of Omni's recent $69 million Series B funding round. Provide detailed insights into the company's origins, including the founders' backgrounds and their journey in building Omni. Explore the company's mission, key products, and unique value proposition compared to competitors in the business intelligence (BI) industry.\n\nInvestigate the growth trajectory of Omni, including major milestones, previous funding rounds, and significant partnerships. What factors contributed to its ability to secure this funding, and how does its current market position compare to other BI companies like Looker, Mode, ThoughtSpot, or Tableau?\n\nExamine the strategic intent behind this funding round. Why is this happening now? What market trends or technological advancements are driving investment in Omni? How does this funding support its plans for embedded analytics, workforce expansion, and revenue growth?\n\nAssess Omni's competitive landscape, including its industry positioning, customer base, and differentiation. What makes its platform stand out, especially in its approach to ad-hoc analysis, SQL integration, and user-friendliness? How is it leveraging innovations in BI and data visualization?\n\nAre there any geopolitical, macroeconomic, or regulatory factors influencing this funding round? How do investor sentiments reflect broader trends in enterprise software and data analytics?\n\nFinally, why does this funding matter? What implications does it have for the BI industry, startups in enterprise SaaS, and Omni's long-term trajectory? Who are the major investors in this round, and what does their involvement signal about the company's future"
-        print("Test Prompt:")
-        print(test_prompt)
-        response = handler.deep_research(test_prompt)
-        print("Test Response from Perplexity API:")
-        print(response)
+        x = X_Client_Handler(31)
+        print(x.create_thread_text(["Test1", "Test2"]))
+        #print(x.check_endpoint_rate_limit("tweets"))
     except Exception as e:
-        print(f"Error testing Perplexity API: {str(e)}")
+        print(f"Error testing X API: {str(e)}")

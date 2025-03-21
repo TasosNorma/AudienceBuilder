@@ -312,8 +312,8 @@ Provide ONLY the plain text version without any explanations.
     INSTRUCTIONS:
     1. Break the content into multiple tweets of appropriate length (max 280 characters each)
     2. Ensure each tweet can stand on its own while maintaining the flow of the thread
-    3. Remove markdown formatting (##, *, _, etc.) but preserve the overall message and structure
-    4. Keep emojis intact
+    3. Keep emojis intact
+    4. Use markdown formatting in the tweets
     5. Format hashtags properly (keep the # symbol)
     6. Number each tweet in your response as "Tweet 1:", "Tweet 2:", etc.
     7. Make the first tweet engaging to capture attention
@@ -340,14 +340,14 @@ Provide ONLY the plain text version without any explanations.
             tweet_pattern = r"Tweet \d+:\s*(.*?)(?=Tweet \d+:|$)"
             
             import re
+            import json
             matches = re.findall(tweet_pattern, response.content, re.DOTALL)
             
             for match in matches:
                 tweet_text = match.strip()
                 if tweet_text:  # Only add non-empty tweets
                     tweet_list.append(tweet_text)
-                    
-            return tweet_list
+            return json.dumps(tweet_list)
         except Exception as e:
             logging.error(f"Error converting markdown to tweet thread: {str(e)}")
             raise e

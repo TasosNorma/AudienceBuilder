@@ -117,12 +117,12 @@
                                                 <i class="bi bi-x-circle"></i> Ignore
                                             </button>
                                             {% elif comparison.status == 'Action Pending to Post' %}
-                                            <button class="btn btn-sm btn-info post-comparison" comparison_id="{{ comparison.id}}">
+                                            <!-- <button class="btn btn-sm btn-info post-comparison" comparison_id="{{ comparison.id}}">
                                                 <i class="bi bi-send"></i> Post
                                             </button>
                                             <button class="btn btn-sm btn-info ignore-draft" comparison_id="{{ comparison.id}}">
                                                 <i class="bi bi-x-circle"></i> Ignore
-                                            </button>
+                                            </button> -->
                                             {% endif %}
                                             <a href="{{ url_for('tmpl.action_profile', comparison_id=comparison.id) }}" 
                                                class="btn btn-sm btn-outline-secondary">

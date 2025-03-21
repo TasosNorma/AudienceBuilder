@@ -219,9 +219,9 @@ def get_user_prompts():
         }), 500
     
 
-@api.route('/draft/post_thread', methods=['POST'])
+@api.route('/draft/post_thread_x', methods=['POST'])
 @login_required
-def post_thread():
+def post_thread_x():
     try:
         data = request.get_json()
         post_id = data.get('post_id')

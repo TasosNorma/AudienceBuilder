@@ -46,8 +46,11 @@
                         <i class="bi bi-eye"></i> Ignore
                     </button>
                     {% elif comparison.status == 'Action Pending to Post' %}
-                    <button class="btn btn-sm btn-warning post-comparison" comparison_id="{{ comparison.id}}">
-                        <i class="bi bi-eye"></i> Post Draft
+                    <button class="btn btn-sm btn-primary post-linkedin" comparison_id="{{ comparison.id}}">
+                        <i class="bi bi-linkedin"></i> Post to LinkedIn
+                    </button>
+                    <button class="btn btn-sm btn-dark post-x" comparison_id="{{ comparison.id}}">
+                        <i class="bi bi-twitter-x"></i> Post to X
                     </button>
                     <button class="btn btn-sm btn-warning ignore-draft" comparison_id="{{ comparison.id}}">
                         <i class="bi bi-eye"></i> Ignore Draft
@@ -84,7 +87,7 @@
                     </div>
                 </div>
 
-                <!-- Processing Result -->
+                <!-- Post Content -->
                 {% if post %}
                 {% if post.status == Post.GENERATED %}
                 <div class="card mb-4">
@@ -94,7 +97,12 @@
                         <!-- Post Format Tabs -->
                         <ul class="nav nav-tabs mb-3" id="postFormatTabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="plain-tab" data-bs-toggle="tab" data-bs-target="#plain-content" type="button" role="tab" aria-controls="plain-content" aria-selected="true">
+                                <button class="nav-link show active" id="thread-tab" data-bs-toggle="tab" data-bs-target="#thread-content" type="button" role="tab" aria-controls="thread-content" aria-selected="true">
+                                    Thread View
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="plain-tab" data-bs-toggle="tab" data-bs-target="#plain-content" type="button" role="tab" aria-controls="plain-content" aria-selected="true">
                                     LinkedIn View
                                 </button>
                             </li>
@@ -107,10 +115,29 @@
                         
                         <!-- Tab Content -->
                         <div class="tab-content" id="postFormatTabsContent">
+                            <!-- Thread List Content -->
+                            <div class="tab-pane fade show active" id="thread-content" role="tabpanel" aria-labelledby="thread-tab">
+                                <div class="alert alert-info mb-3">
+                                    <small><i class="bi bi-info-circle"></i> Thread view - how your content will appear as a series of tweets.</small>
+                                </div>
+                                {% if post.thread_list_text %}
+                                <div class="thread-container">
+                                    {% for tweet in post.thread_list_text|parse_json %}
+                                    <div class="tweet-card mb-2 p-3 border rounded">
+                                        <div class="tweet-content">{{ tweet|markdown|safe }}</div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="alert alert-warning">
+                                    No thread content available.
+                                </div>
+                                {% endif %}
+                            </div>
                             <!-- Plain Text Content -->
-                            <div class="tab-pane fade show active" id="plain-content" role="tabpanel" aria-labelledby="plain-tab">
+                            <div class="tab-pane fade" id="plain-content" role="tabpanel" aria-labelledby="plain-tab">
                                 <div class="alert alert-warning mb-3">
-                                    <small><i class="bi bi-exclamation-triangle"></i> This is how your post will appear on LinkedIn (without markdown formatting).</small>
+                                    <small><i class="bi bi-info-circle"></i> This is how your post will appear on LinkedIn (without markdown formatting).</small>
                                 </div>
                                 <div class="post-content">
                                     {{ post.plain_text|nl2br|safe }}
