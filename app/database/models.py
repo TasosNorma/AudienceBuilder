@@ -91,6 +91,7 @@ class Post(Base):
     markdown_text = Column(Text, nullable=True)  
     plain_text = Column(Text, nullable=True) 
     thread_list_text = Column(Text, nullable=True)
+    group_id = Column(Integer, ForeignKey('groups.id'),nullable=True)
 
 class Schedule(Base):
     __tablename__ = 'schedules'
@@ -180,3 +181,35 @@ class BlogProfileComparison(Base):
     error_message = Column(Text, nullable=True)
     schedule_id = Column(Integer, ForeignKey('schedules.id'),nullable=True)
     past_blog_id = Column(Integer, ForeignKey('blogs.id'),nullable=True)
+    group_id = Column(Integer, ForeignKey('groups.id'),nullable=True)
+    article_text = Column(Text, nullable=True)
+
+class Groups(Base):
+    __tablename__ = 'groups'
+
+    # Allowed Statuses
+    STATUS_PENDING_TO_DRAFT = 'Pending to Draft'
+    STATUS_DRAFTING = 'Drafting'
+    STATUS_FAILED = 'Failed'
+    STATUS_COMPLETED = 'Completed'
+
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    status = Column(String(50), default='Pending to Draft', nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    prompt_id = Column(Integer, ForeignKey('prompts.id'), nullable=False)
+    description = Column(Text, nullable=True)
+    post_id = Column(Integer, ForeignKey('posts.id'),nullable=True)
+
+class Group_Comparison(Base):
+    __tablename__ = 'group_comparisons'
+
+    id = Column(Integer, primary_key=True)
+    group_id = Column(Integer, ForeignKey('groups.id'), nullable=False)
+    blog_profile_comparison_id = Column(Integer, ForeignKey('blog_profile_comparisons.id'), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    
+
+    
