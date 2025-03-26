@@ -184,7 +184,7 @@ class BlogProfileComparison(Base):
     group_id = Column(Integer, ForeignKey('groups.id'),nullable=True)
     article_text = Column(Text, nullable=True)
 
-class Groups(Base):
+class Group(Base):
     __tablename__ = 'groups'
 
     # Allowed Statuses

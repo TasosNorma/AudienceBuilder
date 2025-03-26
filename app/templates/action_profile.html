@@ -56,6 +56,15 @@
                         <i class="bi bi-eye"></i> Ignore Draft
                     </button>
                     {% endif %}
+                    <!-- Add Group Button -->
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-warning dropdown-toggle" type="button" id="groupDropdown{{ comparison.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-pencil"></i> Group
+                        </button>
+                        <ul class="dropdown-menu group-dropdown" data-comparison-id="{{ comparison.id }}" aria-labelledby="groupDropdown{{ comparison.id }}">
+                            <li><div class="dropdown-item text-center"><div class="spinner-border spinner-border-sm" role="status"></div></div></li>
+                        </ul>
+                    </div>
                 </div>
 
                 <!-- Basic Information Card -->
@@ -82,7 +91,18 @@
                             <dd class="col-sm-9">{{ comparison.blog_id }}</dd>
                             <dt class="col-sm-3">Profile Fit</dt>
                             <dd class="col-sm-9">{{ comparison.comparison_result }}</dd>
-
+                            <dt class="col-sm-3">Groups</dt>
+                            <dd class="col-sm-9">
+                                {% if groups %}
+                                    {% for group in groups %}
+                                        <a href="{{ url_for('tmpl.group_profile', group_id=group.id) }}" class="badge bg-info text-decoration-none me-1">
+                                            {{ group.name }}
+                                        </a>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-muted">Not part of any group</span>
+                                {% endif %}
+                            </dd>
                         </dl>
                     </div>
                 </div>

@@ -128,6 +128,14 @@
                                                class="btn btn-sm btn-outline-secondary">
                                                 <i class="bi bi-eye"></i> View
                                             </a>
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-warning dropdown-toggle" type="button" id="groupDropdown{{ comparison.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <i class="bi bi-pencil"></i> Group
+                                                </button>
+                                                <ul class="dropdown-menu group-dropdown" data-comparison-id="{{ comparison.id }}" aria-labelledby="groupDropdown{{ comparison.id }}">
+                                                    <li><div class="dropdown-item text-center"><div class="spinner-border spinner-border-sm" role="status"></div></div></li>
+                                                </ul>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>

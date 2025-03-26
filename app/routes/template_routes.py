@@ -1,9 +1,9 @@
 from flask import render_template, Blueprint, redirect, flash, url_for, request, session
 from flask_login import login_required, current_user, login_user, logout_user
 import os
-from ..core.forms import UrlSubmit, PromptForm, SetupProfileForm,SettingsForm, ScheduleForm,ProfileForm, ArticleCompareForm, LoginForm, RegistrationForm, CreatePromptForm, EditPromptForm
+from ..core.forms import UrlSubmit, PromptForm, SetupProfileForm,SettingsForm, ScheduleForm,ProfileForm, ArticleCompareForm, LoginForm, RegistrationForm, CreatePromptForm, EditPromptForm, CreateGroupForm, EditGroupForm
 from ..database.database import SessionLocal
-from ..database.models import Prompt, Profile, User, Post,Schedule, Blog, BlogProfileComparison,ProfileComparison
+from ..database.models import Prompt, Profile, User, Post,Schedule, Blog, BlogProfileComparison,ProfileComparison, Group, Group_Comparison
 import logging
 from cryptography.fernet import Fernet
 from ..core.helper_handlers import Schedule_Handler, User_Handler, LinkedIn_Auth_Handler, X_Auth_Handler
@@ -155,10 +155,16 @@ def actions():
 def action_profile(comparison_id):
     with SessionLocal() as db:
         try:
-            parts = None
             comparison = db.query(BlogProfileComparison).get(comparison_id)
             post = db.query(Post).filter(Post.blog_comparison_id==comparison_id, Post.user_id==current_user.id).first()
-            return render_template('action_profile.html', comparison=comparison, post=post, Post = Post)
+            
+            # Fetch groups this comparison is part of
+            groups = db.query(Group)\
+                .join(Group_Comparison, Group.id == Group_Comparison.group_id)\
+                .filter(Group_Comparison.blog_profile_comparison_id == comparison_id)\
+                .all()
+                
+            return render_template('action_profile.html', comparison=comparison, post=post, Post=Post, groups=groups)
         except Exception as e:
             logging.error(f"Couldn't get comparison with id {comparison_id} error: {e}")
             flash(f"Unexpected error: {str(e)}", 'error')
@@ -273,6 +279,72 @@ def create_prompt():
     
     return redirect(url_for('tmpl.prompts'))
 
+@tmpl.route('/groups', methods=['GET', 'POST'])
+@login_required
+def groups():
+    form = CreateGroupForm()
+    with SessionLocal() as db:
+        prompts = db.query(Prompt).filter_by(user_id=current_user.id, is_active=True).all()
+        # Populate the form's prompt_id choices
+        form.prompt_id.choices = [(prompt.id, prompt.name) for prompt in prompts]
+        if form.validate_on_submit():
+            new_group = Group(
+                name=form.name.data,
+                description=form.description.data,
+                prompt_id=form.prompt_id.data,
+                user_id=current_user.id
+            )
+            db.add(new_group)
+            db.commit()
+            flash('Group created successfully', 'success')
+            return redirect(url_for('tmpl.groups'))
+        
+        groups = db.query(Group).filter_by(user_id=current_user.id).all()
+        
+
+        groups_data = []
+        for group in groups:
+            comparison_count = db.query(BlogProfileComparison).filter_by(group_id=group.id).count()
+            groups_data.append({
+                'id': group.id,
+                'name': group.name,
+                'status': group.status,
+                'comparison_count': comparison_count
+            })
+        return render_template('groups.html', form=form, groups=groups_data, prompts=prompts)
+    
+@tmpl.route('/group/<int:group_id>', methods=['GET'])
+@login_required
+def group_profile(group_id):
+    
+    with SessionLocal() as db:
+        group = db.query(Group).filter_by(id=group_id, user_id=current_user.id).first()
+        form = EditGroupForm(obj=group)
+        prompts = db.query(Prompt).filter_by(user_id=current_user.id, is_active=True).all()
+        # Populate the form's prompt_id choices
+        form.prompt_id.choices = [(prompt.id, prompt.name) for prompt in prompts]
+        
+        if form.validate_on_submit():
+            group.name = form.name.data
+            group.description = form.description.data
+            group.prompt_id = form.prompt_id.data
+            db.commit()
+            flash('Group updated successfully', 'success')
+            return redirect(url_for('tmpl.group_profile', group_id=group_id))
+         # Get comparisons associated with this group
+        comparisons = db.query(BlogProfileComparison).filter_by(
+            group_id=group_id, 
+            user_id=current_user.id
+        ).order_by(BlogProfileComparison.created_at.desc()).all()
+        
+        return render_template('group_profile.html', 
+                              form=form, 
+                              group=group, 
+                              prompts=prompts, 
+                              comparisons=comparisons,
+                              BlogProfileComparison=BlogProfileComparison)
+        
+            
 @tmpl.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():

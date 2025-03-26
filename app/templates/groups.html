@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Groups</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg,#f5f7fa 0%, #c3cfe2 50% );
+            min-height: 100vh;
+        }
+        .form-card {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    {% include 'sidebar.html' %}
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="text-center py-5">
+                    <h1 class="display-4 fw-bold">Group Management</h1>
+                    <p class="lead text-muted">Create and manage your groups</p>
+                </div>
+                <!-- Flashes -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{% if category == 'error' %}danger{% else %}info{% endif %}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                <!-- Create Prompt Button -->
+                <div class="d-flex justify-content-end mb-3">
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createGroupModal">
+                        <i class="bi bi-plus-circle"></i> Create Group
+                    </button>
+                </div>
+                <!-- Prompts Table -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="h4 mb-0">Your Groups</h2>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Articles</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for group in groups %}
+                                <tr>
+                                    <td class="text-truncate" style="max-width: 300px;">
+                                        {{ group.name }}
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if group.status %}bg-success{% else %}bg-secondary{% endif %}">
+                                            {{ 'Active' if group.status else 'Inactive' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {{ group.comparison_count }}
+                                    </td>
+                                    <td>
+                                        <div class="d-flex gap-2">
+                                            <a href="{{ url_for('tmpl.group_profile', group_id=group.id) }}" 
+                                               class="btn btn-sm btn-outline-secondary">
+                                                <i class="bi bi-eye"></i> View
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Create Group Modal -->
+    <div class="modal fade" id="createGroupModal" tabindex="-1" aria-labelledby="createGroupModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createGroupModalLabel">Create New Group</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" action="{{ url_for('tmpl.groups') }}">
+                        {{ form.csrf_token }}
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Group Name</label>
+                            {{ form.name(class="form-control", placeholder="Enter group name") }}
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Group Description</label>
+                            {{ form.description(class="form-control", placeholder="Enter group description") }}
+                        </div>
+                        <div class="mb-3">
+                            <label for="prompt_id" class="form-label">Select Prompt</label>
+                            {{ form.prompt_id(class="form-control") }}
+                        </div>
+                        <div class="d-grid">
+                            {{ form.submit(class="btn btn-primary") }}
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Add Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

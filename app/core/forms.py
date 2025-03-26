@@ -66,3 +66,18 @@ class EditPromptForm(FlaskForm):
     deep_research_prompt = TextAreaField('Deep Research Prompt')
     active = BooleanField('Active')
     submit = SubmitField('Save Changes')
+
+
+class CreateGroupForm(FlaskForm):
+    name = StringField('Group Name', validators=[DataRequired()])
+    description = TextAreaField('Group Description')
+    prompt_id = SelectField('Prompt', choices=[])
+    submit = SubmitField('Create Group')
+
+class EditGroupForm(FlaskForm):
+    name = StringField('Group Name', validators=[DataRequired()])
+    description = TextAreaField('Group Description')
+    prompt_id = SelectField('Prompt', choices=[])
+    submit = SubmitField('Save Changes')
+
+

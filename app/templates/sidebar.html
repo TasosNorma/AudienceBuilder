@@ -26,6 +26,12 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a href="{{ url_for('tmpl.groups') }}" class="nav-link {% if request.endpoint == 'tmpl.groups' or request.endpoint == 'tmpl.group_profile' %} active {% endif %}">
+                    <i class="bi bi-collection me-2"></i>
+                    Groups
+                </a>
+            </li>
+            <li class="nav-item">
                 <a href="{{url_for('tmpl.schedule')}}" class="nav-link {% if request.endpoint == 'tmpl.schedule' %} active {% endif %}">
                     <i class="bi bi-clock me-2"></i>
                     Schedules

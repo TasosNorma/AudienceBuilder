@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from ..database.database import SessionLocal
-from ..database.models import BlogProfileComparison,Post, Prompt
+from ..database.models import BlogProfileComparison,Post, Prompt, Group, Group_Comparison
 import logging
 import os
 import secrets
@@ -271,3 +271,190 @@ def post_thread_x():
     except Exception as e:
         logging.error(f"Error posting thread: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
+    
+
+@api.route('/user/groups', methods=['GET'])
+@login_required
+def get_user_groups():
+    try:
+        with SessionLocal() as db:
+            groups = db.query(Group).filter(
+                Group.user_id == current_user.id,
+                Group.status.in_([Group.STATUS_PENDING_TO_DRAFT, Group.STATUS_DRAFTING])
+            ).all()
+            
+            if not groups:
+                return jsonify({"status": "success", "groups": []}), 200
+            
+            result = [{
+                "id": group.id,
+                "name": group.name,
+                "status": group.status
+            } for group in groups]
+            
+            return jsonify({
+                "status": "success",
+                "groups": result
+            }), 200
+    except Exception as e:
+        logging.error(f"Error fetching user groups: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+@api.route('/groups/add_action', methods=['POST'])
+@login_required
+def add_action_to_group():
+    try:
+        data = request.get_json()
+        comparison_id = data.get('comparison_id')
+        group_id = data.get('group_id')
+        
+        if not comparison_id or not group_id:
+            return jsonify({
+                "status": "error",
+                "message": "Comparison ID and group ID are required"
+            }), 400
+            
+        with SessionLocal() as db:
+            # Check if comparison exists and belongs to the user
+            comparison = db.query(BlogProfileComparison).filter(
+                BlogProfileComparison.id == comparison_id,
+                BlogProfileComparison.user_id == current_user.id
+            ).first()
+            
+            if not comparison:
+                return jsonify({
+                    "status": "error",
+                    "message": "Comparison not found"
+                }), 404
+                
+            # Check if group exists and belongs to the user
+            group = db.query(Group).filter(
+                Group.id == group_id,
+                Group.user_id == current_user.id
+            ).first()
+            
+            if not group:
+                return jsonify({
+                    "status": "error",
+                    "message": "Group not found"
+                }), 404
+                
+            # Check if this comparison is already in the group
+            existing_link = db.query(Group_Comparison).filter(
+                Group_Comparison.group_id == group_id,
+                Group_Comparison.blog_profile_comparison_id == comparison_id
+            ).first()
+            
+            if existing_link:
+                return jsonify({
+                    "status": "error",
+                    "message": "This article is already in the selected group"
+                }), 400
+                
+            # Create new group_comparison link
+            new_link = Group_Comparison(
+                group_id=group_id,
+                blog_profile_comparison_id=comparison_id
+            )
+            
+            db.add(new_link)
+            
+            # Update the comparison's group_id
+            comparison.group_id = group_id
+            
+            db.commit()
+            
+        return jsonify({
+            "status": "success",
+            "message": "Article added to group successfully"
+        }), 200
+    except Exception as e:
+        logging.error(f"Error adding action to group: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+    
+@api.route('/groups/remove_action', methods=['POST'])
+@login_required
+def remove_action_from_group():
+    try:
+        data = request.get_json()
+        logging.info(f"Received remove_action request with data: {data}")
+        comparison_id = data.get('comparison_id')
+        group_id = data.get('group_id')
+        logging.info(f"Processing remove_action: comparison_id={comparison_id}, group_id={group_id}, user_id={current_user.id}")
+        
+        if not comparison_id or not group_id:
+            error_msg = "Comparison ID and group ID are required"
+            logging.error(f"Validation error: {error_msg}")
+            return jsonify({
+                "status": "error",
+                "message": error_msg
+            }), 400
+            
+        with SessionLocal() as db:
+            # Check if comparison exists and belongs to the user
+            comparison = db.query(BlogProfileComparison).filter(
+                BlogProfileComparison.id == comparison_id,
+                BlogProfileComparison.user_id == current_user.id
+            ).first()
+            
+            if not comparison:
+                error_msg = f"Comparison not found: id={comparison_id}, user={current_user.id}"
+                logging.error(error_msg)
+                return jsonify({
+                    "status": "error",
+                    "message": "Comparison not found"
+                }), 404
+                
+            # Check if group exists and belongs to the user
+            group = db.query(Group).filter(
+                Group.id == group_id,
+                Group.user_id == current_user.id
+            ).first()
+            
+            if not group:
+                error_msg = f"Group not found: id={group_id}, user={current_user.id}"
+                logging.error(error_msg)
+                return jsonify({
+                    "status": "error",
+                    "message": "Group not found"
+                }), 404
+                
+            # Check if this comparison is in the group
+            existing_link = db.query(Group_Comparison).filter(
+                Group_Comparison.group_id == group_id,
+                Group_Comparison.blog_profile_comparison_id == comparison_id
+            ).first()
+            
+            if not existing_link:
+                error_msg = f"No link found between group={group_id} and comparison={comparison_id}"
+                logging.error(error_msg)
+                return jsonify({
+                    "status": "error",
+                    "message": "This article is not in the selected group"
+                }), 400
+            
+            # Remove the link
+            logging.info(f"Removing link: group={group_id}, comparison={comparison_id}")
+            db.delete(existing_link)
+            
+            # Update the comparison's group_id to None
+            comparison.group_id = None
+            
+            db.commit()
+            
+        return jsonify({
+            "status": "success",
+            "message": "Article removed from group successfully"
+        }), 200
+    except Exception as e:
+        logging.error(f"Error removing action from group: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500

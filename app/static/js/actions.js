@@ -222,3 +222,85 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Handle group selection for adding comparison to group
+async function handleGroupSelection(event) {
+    event.preventDefault();
+    
+    const groupId = this.dataset.groupId;
+    const comparisonId = this.dataset.comparisonId;
+    
+    if (confirm('Are you sure you want to add this article to the selected group?')) {
+        try {
+            const response = await fetch('/groups/add_action', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': window.csrfToken
+                },
+                body: JSON.stringify({
+                    comparison_id: comparisonId,
+                    group_id: groupId
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                alert('Article added to group successfully');
+                window.location.reload();
+            } else {
+                alert(result.message || 'Failed to add article to group');
+            }
+        } catch (error) {
+            console.error('Error adding article to group:', error);
+            alert(`Error adding article to group: ${error.message}`);
+        }
+    }
+}
+
+// Add event listener for group button clicks
+document.querySelectorAll('[id^="groupDropdown"]').forEach(button => {
+    button.addEventListener('click', async function() {
+        const comparisonId = this.id.replace('groupDropdown', '');
+        const dropdownMenu = document.querySelector(`.group-dropdown[data-comparison-id="${comparisonId}"]`);
+        
+        // Only load groups if not already loaded
+        if (dropdownMenu.querySelector('.spinner-border')) {
+            try {
+                const response = await fetch('/user/groups');
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    // Clear loading spinner
+                    dropdownMenu.innerHTML = '';
+                    
+                    if (!result.groups || result.groups.length === 0) {
+                        dropdownMenu.innerHTML = '<li><div class="dropdown-item">No groups available</div></li>';
+                    } else {
+                        // Add each group as a dropdown item
+                        result.groups.forEach(group => {
+                            const item = document.createElement('li');
+                            const link = document.createElement('a');
+                            link.className = 'dropdown-item';
+                            link.href = '#';
+                            link.textContent = group.name;
+                            link.dataset.groupId = group.id;
+                            link.dataset.comparisonId = comparisonId;
+                            
+                            link.addEventListener('click', handleGroupSelection);
+                            
+                            item.appendChild(link);
+                            dropdownMenu.appendChild(item);
+                        });
+                    }
+                } else {
+                    dropdownMenu.innerHTML = `<li><div class="dropdown-item text-danger">Error: ${result.message || 'Failed to load groups'}</div></li>`;
+                }
+            } catch (error) {
+                console.error('Error loading groups:', error);
+                dropdownMenu.innerHTML = '<li><div class="dropdown-item text-danger">Failed to load groups</div></li>';
+            }
+        }
+    });
+});
