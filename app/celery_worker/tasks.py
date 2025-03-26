@@ -200,19 +200,26 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
 
         fitting_articles = 0
         if new_comparisons:
-            short_summaries = []
+            extracted_data = []
             for url in new_comparisons.keys():
                 short_summary = processor.write_small_summary(url)
-                short_summaries.append(short_summary)
-            logging.info(f"Wrote short summaries for {len(new_comparisons)} articles")
+                article_text = processor.extract_article_content(url)
+                extracted_data.append({
+                    'url': url,
+                    'short_summary': short_summary,
+                    'article_text': article_text
+                })
+            logging.info(f"Wrote short summaries and extracted article content for {len(new_comparisons)} articles")
+            
             with SessionLocal() as db:
-                for comp_id, short_summary in zip(new_comparisons_ids, short_summaries):
+                for comp_id, data in zip(new_comparisons_ids, extracted_data):
                     comparison = db.query(BlogProfileComparison).get(comp_id)
-                    if not short_summary:
+                    if not data['short_summary']:
                         comparison.status = BlogProfileComparison.STATUS_FAILED_ON_COMPARISON
                         comparison.error_message = 'Failed to get a short summary for the comparison'
                     else:
-                        comparison.short_summary = short_summary
+                        comparison.short_summary = data['short_summary']
+                        comparison.article_text = data['article_text']
                 db.commit()
 
 

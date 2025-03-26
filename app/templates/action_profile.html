@@ -207,6 +207,17 @@
                     </div>
                 </div>
                 {% endif %}
+                <!-- Article Text -->
+                {% if comparison.article_text %}
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h2 class="h4 mb-3">Article Content</h2>
+                        <div class="article-content p-3 bg-light rounded">
+                            {{ comparison.article_text|nl2br|safe }}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
