@@ -37,6 +37,12 @@
                         {% endfor %}
                     {% endif %}
                 {% endwith %}
+                <!-- Action Buttons -->
+                <div class="py-4 d-flex gap-2 justify-content-center">
+                    <button class="btn btn-sm btn-warning draft-group" group_id="{{ group.id }}">
+                        <i class="bi bi-pencil"></i> Draft Group
+                    </button>
+                </div>
 
                 <!-- Basic Information Card -->
                 <div class="card mb-4">
@@ -142,6 +148,51 @@
                         {% endwith %}
                     </div>
                 </div>
+                <!-- Drafts List -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Group Drafts</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if drafts %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Draft Title</th>
+                                            <th>Created At</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for draft in drafts %}
+                                            <tr>
+                                                <td>{{ draft.title }}</td>
+                                                <td>{{ draft.created_at_utc.strftime('%Y-%m-%d %H:%M') }}</td>
+                                                <td>
+                                                    <span class="badge {% if draft.status == 'posted' %}bg-success{% elif draft.status == 'failed' %}bg-danger{% else %}bg-info{% endif %}">
+                                                        {{ draft.status }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <a href="{{ url_for('tmpl.draft_profile', post_id=draft.id) }}" class="btn btn-sm btn-outline-primary">
+                                                        View Draft
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                No drafts have been created for this group yet.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>

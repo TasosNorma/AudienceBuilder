@@ -2,6 +2,67 @@ document.addEventListener('DOMContentLoaded', function() {
     // Get all remove action buttons
     const removeButtons = document.querySelectorAll('.remove-action-btn');
     
+    // Add click event listener to draft group button
+    const draftGroupBtn = document.querySelector('.draft-group');
+    if (draftGroupBtn) {
+        draftGroupBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Get group ID from data attribute
+            const groupId = this.getAttribute('group_id');
+            
+            if (!confirm('Are you sure you want to draft this group?')) {
+                return;
+            }
+            
+            // Send API request to draft group
+            fetch('/groups/draft', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': window.csrfToken
+                },
+                body: JSON.stringify({
+                    group_id: groupId
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(errorData => {
+                        throw new Error(`Server responded with status: ${response.status}. Message: ${errorData.message || 'Unknown error'}`);
+                    }).catch(jsonError => {
+                        throw new Error(`Server responded with status: ${response.status}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    // Show success message
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-success';
+                    alertDiv.textContent = data.message || 'Group draft started successfully';
+                    
+                    // Add alert to the page
+                    const container = document.querySelector('.container');
+                    container.insertBefore(alertDiv, container.firstChild);
+                    
+                    // Auto-dismiss alert after 3 seconds
+                    setTimeout(() => {
+                        alertDiv.remove();
+                    }, 3000);
+                } else {
+                    // Show error message
+                    alert(data.message || 'Failed to draft group');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while drafting the group');
+            });
+        });
+    }
+    
     // Add click event listener to each button
     removeButtons.forEach(button => {
         button.addEventListener('click', function(e) {

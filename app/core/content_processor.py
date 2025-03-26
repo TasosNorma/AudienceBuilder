@@ -1,7 +1,7 @@
 from langchain_openai import ChatOpenAI
 import os
 from app.database.database import *
-from app.database.models import Profile,Prompt
+from app.database.models import Profile,Prompt,BlogProfileComparison,Group_Comparison,Group
 from langchain.prompts import PromptTemplate
 import asyncio
 import logging
@@ -82,7 +82,7 @@ class SyncAsyncContentProcessor:
             logging.error(f"Error in comparing article relevance to profile: {str(e)}")
             raise e
     
-    def draft(self, url:str, prompt_id:int,model_name:str='gpt-4o'):
+    def draft(self, url:str = None, prompt_id:int = None,model_name:str='gpt-4o',group_id:int = None):
         try:
             with SessionLocal() as db:
                 prompt = db.query(Prompt).get(prompt_id)
@@ -90,6 +90,8 @@ class SyncAsyncContentProcessor:
                     return self.draft_article(url,prompt_id,model_name)
                 elif prompt.type == Prompt.TYPE_ARTICLE_DEEP_RESEARCH:
                     return self.draft_article_and_deep_research(url,prompt_id,model_name)
+                elif prompt.type == Prompt.TYPE_GROUP:
+                    return self.draft_group(group_id,prompt_id,model_name)
                 else:
                     raise ValueError(f"Invalid prompt type: {prompt.type}")
         except Exception as e:
@@ -132,6 +134,25 @@ class SyncAsyncContentProcessor:
             logging.error(f"Error processing URL {url}: {str(e)}")
             raise e
     
+    def draft_group(self, group_id:int, prompt_id:int, model_name:str='gpt-4o'):
+        try:
+            combined_article_text = ""
+            with SessionLocal() as db:
+                group = db.query(Group).get(group_id)
+                group_comparisons = db.query(Group_Comparison).filter(
+                    Group_Comparison.group_id == group.id
+                ).all()
+                for i, group_comparison in enumerate(group_comparisons, 1):
+                    blog_comparison = db.query(BlogProfileComparison).get(group_comparison.blog_profile_comparison_id)
+                    combined_article_text += f"Article {i}: {blog_comparison.article_text}\n\n"
+                self.setup_chain_from_prompt_id(prompt_id,model_name)
+                self.result = self.final_chain.invoke({"group": combined_article_text}).content
+                return self.result
+        except Exception as e:
+            logging.error(f"Error processing group: {str(e)}")
+            raise e
+        
+
     def write_small_summary(self, url:str):
         try:
             loop = asyncio.new_event_loop()

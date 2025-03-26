@@ -82,7 +82,7 @@ class Post(Base):
     
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    url = Column(String(2048), nullable=False)
+    url = Column(String(2048), nullable=True)
     status = Column(String(50), nullable=False)
     parts = Column(Text, nullable=True)  
     part_count = Column(Integer, default=0)
@@ -197,7 +197,7 @@ class Group(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),nullable=False)
     status = Column(String(50), default='Pending to Draft', nullable=False)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     prompt_id = Column(Integer, ForeignKey('prompts.id'), nullable=False)
@@ -210,7 +210,7 @@ class Group_Comparison(Base):
     id = Column(Integer, primary_key=True)
     group_id = Column(Integer, ForeignKey('groups.id'), nullable=False)
     blog_profile_comparison_id = Column(Integer, ForeignKey('blog_profile_comparisons.id'), nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),nullable=False)
     
 
     

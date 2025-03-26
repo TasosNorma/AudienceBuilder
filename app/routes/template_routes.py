@@ -252,17 +252,14 @@ def create_prompt():
     
     if form.validate_on_submit():
         try:
-            logging.error(f"Creating new prompt for user {current_user.id}")
             with SessionLocal() as db:
                 prompt_type = int(request.form.get('type', 1))
-                logging.error(f"Prompt type: {prompt_type}")
                 
                 if prompt_type == 1:
                     input_variables = '["article"]'
                 elif prompt_type == 2:
                     input_variables = '["article", "research_results"]'
                     deep_research_prompt = form.deep_research_prompt.data
-                    logging.error(f"Deep research prompt included, length: {len(deep_research_prompt)}")
                 elif prompt_type == 3:
                     input_variables = '["group"]'
 
@@ -277,7 +274,6 @@ def create_prompt():
                 )
                 db.add(new_prompt)
                 db.commit()
-                logging.error(f"Prompt created successfully for user {current_user.id}")
                 flash('Prompt created successfully!', 'success')
                 return redirect(url_for('tmpl.prompts'))
         except Exception as e:
@@ -329,6 +325,7 @@ def group_profile(group_id):
         group = db.query(Group).filter_by(id=group_id, user_id=current_user.id).first()
         form = EditGroupForm(obj=group)
         prompts = db.query(Prompt).filter_by(user_id=current_user.id, is_active=True).all()
+        drafts = db.query(Post).filter_by(group_id=group_id, user_id=current_user.id).all()
         # Populate the form's prompt_id choices
         form.prompt_id.choices = [(prompt.id, prompt.name) for prompt in prompts]
         
@@ -350,7 +347,8 @@ def group_profile(group_id):
                               group=group, 
                               prompts=prompts, 
                               comparisons=comparisons,
-                              BlogProfileComparison=BlogProfileComparison)
+                              BlogProfileComparison=BlogProfileComparison,
+                              drafts=drafts)
         
             
 @tmpl.route('/profile', methods=['GET', 'POST'])

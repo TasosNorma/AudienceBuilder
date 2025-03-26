@@ -40,6 +40,37 @@ def draft_draft(self, url:str, prompt_id:int, user_id:int):
         logging.error(f"Error drafting draft: {str(e)}")
         raise e
 
+@celery_app.task(bind=True)
+def draft_group(self, group_id:int, prompt_id:int, user_id:int):
+    post_id = None
+    try:
+        with SessionLocal() as db:
+            post = Post(
+                user_id=user_id,
+                status=Post.PROCESSING,
+                created_at_utc=datetime.now(timezone.utc),
+                group_id=group_id
+            )
+            db.add(post)
+            db.commit()
+            db.flush()
+            post_id = post.id
+            user = db.query(User).get(user_id)
+            processor = SyncAsyncContentProcessor(user)
+            post.markdown_text = processor.draft(group_id=group_id,prompt_id=prompt_id)
+            post.plain_text = processor.convert_markdown_to_plain_text(post.markdown_text)
+            post.thread_list_text = processor.convert_markdown_to_tweet_thread(post.markdown_text)
+            post.status = Post.GENERATED
+            db.commit()
+    except Exception as e:
+        with SessionLocal() as db:
+            post = db.query(Post).get(post_id)
+            post.status = Post.FAILED
+            post.error_message = str(e)
+            db.commit()
+        logging.error(f"Error drafting group: {str(e)}")
+        raise e
+
 # Is called by the profile_compare route and creates a profile_comparison object that judges whether or not the url fits the profile.
 @celery_app.task(bind=True)
 def compare_profile_task(self, url: str, user_id: int):

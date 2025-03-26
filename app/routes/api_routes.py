@@ -6,7 +6,7 @@ import logging
 import os
 import secrets
 from ..core.helper_handlers import Schedule_Handler, Blog_Profile_Comparison_Handler, LinkedIn_Client_Handler, X_Client_Handler
-from ..celery_worker.tasks import comparison_draft, draft_draft
+from ..celery_worker.tasks import comparison_draft, draft_draft, draft_group
 
 
 
@@ -102,7 +102,6 @@ def ignore_draft_comparison(comparison_id):
             "status": "error",
             "message": str(e)
         })
-
 
 @api.route('/draft/draft', methods=['POST'])
 @login_required
@@ -218,7 +217,6 @@ def get_user_prompts():
             "message": str(e)
         }), 500
     
-
 @api.route('/draft/post_thread_x', methods=['POST'])
 @login_required
 def post_thread_x():
@@ -272,7 +270,6 @@ def post_thread_x():
         logging.error(f"Error posting thread: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
     
-
 @api.route('/user/groups', methods=['GET'])
 @login_required
 def get_user_groups():
@@ -454,6 +451,39 @@ def remove_action_from_group():
         }), 200
     except Exception as e:
         logging.error(f"Error removing action from group: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+    
+@api.route('/groups/draft', methods=['POST'])
+@login_required
+def draft_groups():
+    try:
+        data = request.get_json()
+        group_id = data.get('group_id')
+        with SessionLocal() as db:
+            prompt_id = db.query(Group).filter(Group.id == group_id, Group.user_id == current_user.id).first().prompt_id
+        if not prompt_id:
+            return jsonify({
+                "status": "error",
+                "message": "Prompt not found"
+            }), 404
+        
+        if not group_id:
+            return jsonify({
+                "status": "error",
+                "message": "Group ID is required"
+            }), 400
+        
+        draft_group.delay(group_id=group_id, prompt_id=prompt_id, user_id=current_user.id)
+
+        return jsonify({
+            "status": "success",
+            "message": "Group draft generation started"
+        }), 200
+    except Exception as e:
+        logging.error(f"Error drafting group: {str(e)}")
         return jsonify({
             "status": "error",
             "message": str(e)
