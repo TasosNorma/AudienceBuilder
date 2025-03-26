@@ -252,13 +252,19 @@ def create_prompt():
     
     if form.validate_on_submit():
         try:
+            logging.error(f"Creating new prompt for user {current_user.id}")
             with SessionLocal() as db:
                 prompt_type = int(request.form.get('type', 1))
+                logging.error(f"Prompt type: {prompt_type}")
+                
                 if prompt_type == 1:
                     input_variables = '["article"]'
                 elif prompt_type == 2:
                     input_variables = '["article", "research_results"]'
                     deep_research_prompt = form.deep_research_prompt.data
+                    logging.error(f"Deep research prompt included, length: {len(deep_research_prompt)}")
+                elif prompt_type == 3:
+                    input_variables = '["group"]'
 
                 new_prompt = Prompt(
                     type=prompt_type,  
@@ -271,9 +277,11 @@ def create_prompt():
                 )
                 db.add(new_prompt)
                 db.commit()
+                logging.error(f"Prompt created successfully for user {current_user.id}")
                 flash('Prompt created successfully!', 'success')
                 return redirect(url_for('tmpl.prompts'))
         except Exception as e:
+            logging.error(f"Error creating prompt for user {current_user.id}: {str(e)}")
             flash(f'Error creating prompt: {str(e)}', 'error')
             return redirect(url_for('tmpl.prompts'))
     

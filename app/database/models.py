@@ -10,6 +10,7 @@ class Prompt(Base):
     #Allowed Types
     TYPE_ARTICLE = 1
     TYPE_ARTICLE_DEEP_RESEARCH = 2
+    TYPE_GROUP = 3
 
 
     id = Column(Integer, primary_key=True)

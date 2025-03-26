@@ -69,7 +69,7 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <small class="text-muted">{{ 'Article' if prompt.type == 1 else 'Article + Research' if prompt.type == 2 else 'None' }}</small>
+                                        <small class="text-muted">{{ 'Article' if prompt.type == 1 else 'Article + Research' if prompt.type == 2 else 'Group' if prompt.type == 3 else 'None' }}</small>
                                     </td>
                                     <td>
                                         <div class="d-flex gap-2">
@@ -105,6 +105,7 @@
                             <select name="type" id="type" class="form-select">
                                 <option value="1">Article</option>
                                 <option value="2">Article and Deep Research</option>
+                                <option value="3">Group</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -163,6 +164,11 @@
                 } else {
                     templateField.placeholder = "Reference the article with '{article}'";
                     templateExample.textContent = "Example: \"Generate an informative post about {article}.\"";
+                    deepResearchFields.style.display = 'none';
+                }
+                if (typeSelect.value === '3') {
+                    templateField.placeholder = "Reference the group with '{group}'";
+                    templateExample.textContent = "Example: \"Generate a post about this group {group}\"";
                     deepResearchFields.style.display = 'none';
                 }
             }

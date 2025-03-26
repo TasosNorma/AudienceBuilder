@@ -56,7 +56,7 @@ class ProfileForm(FlaskForm):
 class CreatePromptForm(FlaskForm):
     name = StringField('Prompt Name', validators=[DataRequired()])
     template = TextAreaField('Prompt Template', validators=[DataRequired()])
-    type = SelectField('Prompt Type', choices=[('1', 'Article'), ('2', 'Article and Deep Research')])
+    type = SelectField('Prompt Type', choices=[('1', 'Article'), ('2', 'Article and Deep Research'), ('3', 'Group')])
     deep_research_prompt = TextAreaField('Deep Research Prompt')
     submit = SubmitField('Create Prompt')
 
