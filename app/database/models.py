@@ -7,10 +7,19 @@ from flask_login import UserMixin
 class Prompt(Base):
     __tablename__ = 'prompts'
 
-    #Allowed Types
+    #Allowed Draft Types
     TYPE_ARTICLE = 1
     TYPE_ARTICLE_DEEP_RESEARCH = 2
     TYPE_GROUP = 3
+
+    #Allowed System Prompt Types
+    TYPE_IS_ARTICLE_RELEVANT = 1
+    TYPE_WRITE_SMALL_SUMMARY = 2
+    TYPE_EXTRACT_ARTICLE_CONTENT = 3
+    TYPE_EXTRACT_ALL_ARTICLES_FROM_PAGE = 4
+    TYPE_CONVERT_MARKDOWN_TO_PLAIN_TEXT = 5
+    TYPE_CONVERT_MARKDOWN_TO_THREAD_LIST = 6
+    TYPE_IGNORE_AND_LEARN = 7
 
 
     id = Column(Integer, primary_key=True)
@@ -25,6 +34,7 @@ class Prompt(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), 
                        onupdate=lambda: datetime.now(timezone.utc))
+    system_prompt = Column(Boolean, default=False)
     
 class Profile(Base):
     __tablename__ = 'profiles'
