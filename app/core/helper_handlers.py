@@ -12,6 +12,7 @@ from cryptography.fernet import Fernet
 import re
 from urllib.parse import urlparse, parse_qsl
 from requests_oauthlib import OAuth1Session
+from app.core.default_prompts import DEFAULT_PROMPTS
 
 class Schedule_Handler:
     def __init__(self,user_id: int) -> None:
@@ -157,38 +158,23 @@ class User_Handler:
     def __init__(self, user_id: int = None):
         self.user_id = user_id
 
-    def set_default_prompt(self,user_id:int):
+    def set_default_prompts(self, user_id: int):
         with SessionLocal() as db:
             try:
-                default_prompt_1 = Prompt(
-                    name = "LinkedIn Informative Post Generator",
-                    type=Prompt.TYPE_ARTICLE,
-                    description = 'Generates an informative post for LinkedIn',
-                    user_id = user_id,
-                    template = """
-            You are a professional linkedin post writer who is given articles from the web and is tasked to write nice engaging and informative linkedin posts about the contents of the articles. In your draft, you should:
-
-            1. Start with a compelling hook, begin with an attention grabbing yet relevant and smart opening line.
-            2. You're just reporting on news so sound very objective and don’t promote anything
-                1. Avoid Jargon keep it as professional as possible. 
-                2. Don't comment on opinions, focus mainly on facts 
-            3. Try to be as simple as possible
-            4. Incorporate emojis into your post
-            5. Craft compelling headline
-            6. Be up to 250 words
-            7. Add 5-10 relevant hashtags
-            8. Add bullet points to structure the post
-            ### Suffix_     
-
-            ** Primary Article **
-            This is the article:
-            {article}
-
-            """,
-                input_variables='["article"]',
-                is_active=True
-                )
-                db.add(default_prompt_1)
+                # Add all default prompts from the imported list
+                for prompt_data in DEFAULT_PROMPTS:
+                    prompt = Prompt(
+                        name=prompt_data["name"],
+                        type=prompt_data["type"],
+                        description=prompt_data["description"],
+                        user_id=user_id,
+                        template=prompt_data["template"],
+                        input_variables=json.dumps(prompt_data["input_variables"]),
+                        is_active=prompt_data["is_active"],
+                        system_prompt=prompt_data["system_prompt"],
+                        deep_research_prompt=prompt_data["deep_research_prompt"]
+                    )
+                    db.add(prompt)
                 db.commit()
             except Exception as e:
                 db.rollback()
@@ -203,7 +189,7 @@ class User_Handler:
                 db.add(user)
                 db.commit()
                 db.flush()
-                self.set_default_prompt(user_id=user.id)
+                self.set_default_prompts(user_id=user.id)
             except Exception as e:
                 db.rollback()
                 logging.error(f"Error creating the user : {str(e)}")
