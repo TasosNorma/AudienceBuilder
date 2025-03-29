@@ -139,12 +139,8 @@ class SyncAsyncContentProcessor:
             logging.error(f"Error processing group: {str(e)}")
             raise e
         
-    def write_small_summary(self, url:str):
+    def write_small_summary(self, article_text:str):
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            markdown_content = loop.run_until_complete(self.scrapfly_crawler.get_page_content(url))
-            loop.close()
             
             with SessionLocal() as db:
                 system_prompt = db.query(Prompt).filter(
@@ -154,7 +150,7 @@ class SyncAsyncContentProcessor:
                 ).first()
                 
             self.setup_chain_from_prompt_id(system_prompt.id, 'gpt-4o-mini')
-            response = self.final_chain.invoke({"markdown": markdown_content})
+            response = self.final_chain.invoke({"markdown": article_text})
             return response.content
         except Exception as e:
             logging.error(f"Error in writing small summary: {str(e)}")

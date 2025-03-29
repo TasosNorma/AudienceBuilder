@@ -152,13 +152,21 @@ def comparison_draft(self, user_id:int, comparison_id:int, prompt_id:int):
 def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
     try:
         blog_id = None
+        articles = []
+        fitting_articles = 0
+        extracted_data = []
+        new_comparisons_ids = []
+        processed_urls = {}
+        new_comparisons = {}
+        already_processed = {}
+
+        # Check if it was triggered by schedule, create a blog and extract all articles.
         with SessionLocal() as db:
             if schedule_id is not None:
                 schedule = db.query(Schedule).get(schedule_id)
                 if schedule:
                     schedule.last_run_at = datetime.utcnow()    
                     db.commit()
-        with SessionLocal() as db:
             user = db.query(User).get(user_id)
             processor = SyncAsyncContentProcessor(user)
             blog = Blog(
@@ -171,19 +179,14 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
             db.add(blog)
             db.commit()
             blog_id = blog.id
-        articles = processor.extract_all_articles_from_page(url)
-        with SessionLocal() as db:
+            articles = processor.extract_all_articles_from_page(url)
             blog = db.query(Blog).get(blog_id)
             blog.number_of_articles = len(articles)
             db.commit()
-        logging.info(f"Extracted {len(articles)} articles from {url} and added to database")
-        
-        with SessionLocal() as db:
             existing_comparisons = db.query(BlogProfileComparison).filter(
                 BlogProfileComparison.user_id == user_id
             ).all()
             # Dictionary that includes the oldest blog_id for each url 
-            processed_urls = {}
             for comp in existing_comparisons:
                 if comp.url not in processed_urls or comp.created_at < processed_urls[comp.url]['created_at']:
                     processed_urls[comp.url] = {
@@ -191,13 +194,16 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
                         'created_at': comp.created_at,
                         'short_summary': comp.short_summary
                     }
-        new_comparisons = {url: title for url, title in articles.items() if url not in processed_urls}
-        already_processed = {url: {'title': title, 'past_blog_id': processed_urls[url]['blog_id'], 'short_summary': processed_urls[url]['short_summary']} 
+            # A dictionary for new comparisons and another one for old ones, together with what was the first blog we encountered this url.
+            new_comparisons = {url: title for url, title in articles.items() if url not in processed_urls}
+            already_processed = {url: {'title': title, 'past_blog_id': processed_urls[url]['blog_id'], 'short_summary': processed_urls[url]['short_summary']} 
                             for url, title in articles.items() if url in processed_urls}
 
-        new_comparisons_ids = []
+        # Create objects for new and old comparisons, 
         with SessionLocal() as db:
             profile = db.query(Profile).filter_by(user_id=user_id).first()
+            user = db.query(User).get(user_id)
+            processor = SyncAsyncContentProcessor(user)
             for url, title in new_comparisons.items():
                 comparison = BlogProfileComparison( 
                     url=url,
@@ -228,21 +234,16 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
                 db.add(comparison)
                 db.flush()
                 db.commit()
-
-        fitting_articles = 0
-        if new_comparisons:
-            extracted_data = []
-            for url in new_comparisons.keys():
-                short_summary = processor.write_small_summary(url)
-                article_text = processor.extract_article_content(url)
-                extracted_data.append({
-                    'url': url,
-                    'short_summary': short_summary,
-                    'article_text': article_text
-                })
-            logging.info(f"Wrote short summaries and extracted article content for {len(new_comparisons)} articles")
-            
-            with SessionLocal() as db:
+            if new_comparisons:
+                for url in new_comparisons.keys():
+                    article_text = processor.extract_article_content(url)
+                    short_summary = processor.write_small_summary(article_text)
+                    extracted_data.append({
+                        'url': url,
+                        'short_summary': short_summary,
+                        'article_text': article_text
+                    })
+                logging.info(f"Wrote short summaries and extracted article content for {len(new_comparisons)} articles")
                 for comp_id, data in zip(new_comparisons_ids, extracted_data):
                     comparison = db.query(BlogProfileComparison).get(comp_id)
                     if not data['short_summary']:
@@ -286,6 +287,7 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
             blog.status = Blog.COMPLETED
             blog.number_of_fitting_articles = fitting_articles
             db.commit()
+            logging.info(f"Blog analysis completed for blog_id {blog_id}, user_id {user_id} with {fitting_articles} fitting articles")
     except SoftTimeLimitExceeded:
         logging.error(f"Soft time limit exceeded for blog {blog_id} for user {user_id}")
         with SessionLocal() as db:

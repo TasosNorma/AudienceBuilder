@@ -182,29 +182,33 @@ def get_comparison_post(comparison_id):
         logging.error(f"Error fetching post data: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
     
+# You have to specify if you want system prompts or not.
 @api.route('/user/prompts', methods=['GET'])
 @login_required
 def get_user_prompts():
     try:
         prompt_type = request.args.get('type', type=int)
+        system_prompts = request.args.get('system_prompts', 'false').lower() == 'true'
         
         with SessionLocal() as db:
             prompts = db.query(Prompt).filter(
                 Prompt.user_id == current_user.id,
-                Prompt.is_active == True
+                Prompt.is_active == True,
+                Prompt.system_prompt == system_prompts
             )
-            if not prompts.first():
-                return jsonify({"status": "error", "message": "No prompts found"}), 404
             
             if prompt_type:
                 prompts = prompts.filter(Prompt.type == prompt_type)
-                
-            prompts = prompts.all()
+            
+            prompts_list = prompts.all()
+            
+            if not prompts_list:
+                return jsonify({"status": "success", "prompts": []}), 200
             
             result = [{
                 "id": prompt.id,
                 "name": prompt.name,
-            } for prompt in prompts]
+            } for prompt in prompts_list]
             
             return jsonify({
                 "status": "success",
@@ -216,6 +220,7 @@ def get_user_prompts():
             "status": "error",
             "message": str(e)
         }), 500
+    
     
 @api.route('/draft/post_thread_x', methods=['POST'])
 @login_required
