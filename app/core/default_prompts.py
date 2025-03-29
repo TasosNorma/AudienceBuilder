@@ -243,12 +243,15 @@ Provide ONLY the formatted tweets without any explanations.
         "type": Prompt.TYPE_IGNORE_AND_LEARN,
         "description": "Updates user profile to avoid irrelevant article recommendations",
         "template": """I'm gonna give you a text describing what type of articles interest me and i'm also going to give you an article that was suggested to me and i ended up not liking, i want you to improve the text describing what type of articles interest me so that this type of article don't ever fit again. Use examples. 
-I want you to reply only with my profile, nothing else. Here's my profile/type of articles that interest me:
-
+I want you to reply only with my profile, nothing else. 
+Here's my profile/type of articles that interest me:
 {profile}
 
+Here's the article that was suggested to me:
+{article}
+
 Improve my profile""",
-        "input_variables": ["profile"],
+        "input_variables": ["profile", "article"],
         "is_active": True,
         "system_prompt": True,
         "deep_research_prompt": None

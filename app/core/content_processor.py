@@ -56,28 +56,14 @@ class SyncAsyncContentProcessor:
                 profile_description = db.query(Profile).filter(
                     Profile.user_id == self.user.id
                 ).first().interests_description
-            self.setup_llm('gpt-4o-mini')
-            prompt = PromptTemplate(
-                template="""You will receive two inputs: a profile description and an article. Your task is to determine if the person described in the profile would find the article relevant, interesting, and suitable for sharing on their social media.
-                You must be very strict: only answer "Yes" if the article strongly aligns with their interests, professional focus, or sharing habits as described in the profile. Otherwise, answer "No".
-
-                Instructions:
-                1. Read the profile carefully to understand the individual's professional background, interests, and the types of content they are likely to share.
-                2. Read the article and assess its topic, tone, and relevance to the profile's interests.
-                3. If the article's content clearly matches the individual's interests or sharing criteria described in the profile, respond with "Yes".
-                4. If it does not, respond with "No".
-                5. Provide no additional commentary—only "Yes" or "No".
-
-                Profile:
-                "{profile}"
-
-                Article:
-                "{article}"
-            """,
-                input_variables=["profile", "article"]
-            )
-            chain = prompt | self.llm
-            response = chain.invoke({"profile": profile_description, "article": short_summary})
+                system_prompt = db.query(Prompt).filter(
+                    Prompt.user_id == self.user.id,
+                    Prompt.system_prompt == True,
+                    Prompt.type == Prompt.TYPE_IS_ARTICLE_RELEVANT
+                ).first()
+                
+            self.setup_chain_from_prompt_id(system_prompt.id, 'gpt-4o-mini')
+            response = self.final_chain.invoke({"profile": profile_description, "article": short_summary})
             return response.content.strip().lower() == "yes"
         except Exception as e:
             logging.error(f"Error in comparing article relevance to profile: {str(e)}")
@@ -159,34 +145,16 @@ class SyncAsyncContentProcessor:
             asyncio.set_event_loop(loop)
             markdown_content = loop.run_until_complete(self.scrapfly_crawler.get_page_content(url))
             loop.close()
-            self.setup_llm('gpt-4o-mini')
-            prompt = PromptTemplate(
-                template="""You are tasked with creating a concise summary of the provided markdown content.
-
-    INSTRUCTIONS:
-    1. Create a summary of approximately 3-4 sentences (100-150 words)
-    2. Focus on answering:
-        - What is the main topic/announcement?
-        - What are the key benefits or implications?
-        - What are the most important technical details or facts?
-
-    GUIDELINES:
-    - Be factual and objective
-    - Use clear, direct language
-    - Avoid marketing language or subjective claims
-    - Include specific numbers or metrics when present
-    - Exclude quotes unless absolutely crucial
-    - Do not include background information about the company
-    - Do not mention the article's author or publication date
-
-MARKDOWN CONTENT:
-{markdown}
-            """,
-                input_variables=["markdown"]
-            )
-            chain = prompt | self.llm
-            response = chain.invoke({"markdown": markdown_content})
-
+            
+            with SessionLocal() as db:
+                system_prompt = db.query(Prompt).filter(
+                    Prompt.user_id == self.user.id,
+                    Prompt.system_prompt == True,
+                    Prompt.type == Prompt.TYPE_WRITE_SMALL_SUMMARY
+                ).first()
+                
+            self.setup_chain_from_prompt_id(system_prompt.id, 'gpt-4o-mini')
+            response = self.final_chain.invoke({"markdown": markdown_content})
             return response.content
         except Exception as e:
             logging.error(f"Error in writing small summary: {str(e)}")
@@ -198,28 +166,16 @@ MARKDOWN CONTENT:
             asyncio.set_event_loop(loop)
             markdown_content = loop.run_until_complete(self.scrapfly_crawler.get_page_content(url))
             loop.close()
-            self.setup_llm('gpt-4o-mini')
-            prompt = PromptTemplate(
-                template="""You are an expert at reading raw webpage markup and reconstructing the original article text. You will be given the complete HTML markup of a webpage that contains an article. Your task is to produce the clean article text in a well-structured, hierarchical format, reflecting the original headings and subheadings as closely as possible.
-            # Instructions:
-            * Article Content Only: Reproduce only the main article text. Omit any content not integral to the article (e.g., ads, navigation menus, related posts, social media links, comments).
-            * No Additional Commentary: Do not include your own explanations or remarks. Present only what the original author wrote.
-            * Don't Repeat Yourself: Do not repeat yourself, if you've said something once, do not say it again at the end of the article
-            * Clean and Hierarchical Structure:
-            * Use a clear hierarchy for titles and headings (e.g., # for the main title, ## for subheadings, etc.)
-            * Maintain paragraph structure and any lists the author included.
-            * Do not restate content unnecessarily. If something appears once, do not repeat it unless it was repeated in the original text.
-            * No Non-textual Elements: Exclude images, URLs, and references that are not essential for understanding the article's core message.
-            Your final output should be a neatly organized version of the article's textual content, suitable for further processing or summarization.
-
-MARKDOWN CONTENT:
-{markdown}
-            """,
-                input_variables=["markdown"]
-            )
-            chain = prompt | self.llm
-            response = chain.invoke({"markdown": markdown_content})
-
+            
+            with SessionLocal() as db:
+                system_prompt = db.query(Prompt).filter(
+                    Prompt.user_id == self.user.id,
+                    Prompt.system_prompt == True,
+                    Prompt.type == Prompt.TYPE_EXTRACT_ARTICLE_CONTENT
+                ).first()
+                
+            self.setup_chain_from_prompt_id(system_prompt.id, 'gpt-4o-mini')
+            response = self.final_chain.invoke({"markdown": markdown_content})
             return response.content
         except Exception as e:
             logging.error(f"Error in extracting article content: {str(e)}")
@@ -231,38 +187,16 @@ MARKDOWN CONTENT:
             asyncio.set_event_loop(loop)
             markdown_content = loop.run_until_complete(self.scrapfly_crawler.get_page_content(url))
             loop.close()
-            self.setup_llm('gpt-4o-mini')
-            prompt = PromptTemplate(
-                template="""You are analyzing the markdown content of a webpage that contains multiple articles.
-
-    TASK:
-    Extract all main article links from the provided markdown content.
-
-    INSTRUCTIONS:
-    1. Extract ALL article links that appear in the main content area
-    2. For each article found, extract:
-    - The complete URL/href
-    - The article title
-
-    3. Exclude only:
-    - Navigation menu links (like "new", "past", "comments", etc.)
-    - Footer links
-    - Login/submit/hide links
-    - User profile links
-    - Voting links
-
-    Return the results as a JSON array of objects with 'url' and 'title' fields.
-
-    IMPORTANT: Include ALL articles in the main content area, regardless of their topic or type.
-
-    MARKDOWN CONTENT:
-    {markdown}
-
-    Return only the JSON array, nothing else.""",
-                input_variables=["markdown"]
-            )
-            chain = prompt | self.llm
-            response = chain.invoke({"markdown": markdown_content})
+            
+            with SessionLocal() as db:
+                system_prompt = db.query(Prompt).filter(
+                    Prompt.user_id == self.user.id,
+                    Prompt.system_prompt == True,
+                    Prompt.type == Prompt.TYPE_EXTRACT_ALL_ARTICLES_FROM_PAGE
+                ).first()
+                
+            self.setup_chain_from_prompt_id(system_prompt.id, 'gpt-4o-mini')
+            response = self.final_chain.invoke({"markdown": markdown_content})
             content = response.content
 
             # The below is formating for the response of the LLM to become a nice dictionary that we can use with Code.
@@ -286,9 +220,6 @@ MARKDOWN CONTENT:
                             article_url = f"{base_url}/{article_url}"
                     article_dict[article_url] = article['title']            
             return article_dict
-                
-    
-                
         except Exception as e:
             logging.error(f"Error extracting articles from {url}: {str(e)}")
             raise e
@@ -296,28 +227,15 @@ MARKDOWN CONTENT:
     def convert_markdown_to_plain_text(self, markdown_text:str):
         """Convert markdown formatted text to plain text suitable for LinkedIn posting."""
         try:
-            self.setup_llm('gpt-4o-mini')
-            prompt = PromptTemplate(
-                template="""You are tasked with converting markdown text to plain text suitable for LinkedIn.
-
-INSTRUCTIONS:
-1. Remove all markdown formatting (##, *, _, etc.) but maintain the structure and hierarchy
-2. Convert bullet points to appropriate Unicode characters (•)
-3. Keep emojis intact
-4. Maintain paragraph breaks
-5. Format hashtags properly (keep the # symbol)
-6. Ensure the text reads naturally on LinkedIn where markdown is not supported
-7. Do not add or remove any content - just convert the formatting
-
-MARKDOWN TEXT:
-{markdown_text}
-
-Provide ONLY the plain text version without any explanations.
-                """,
-                input_variables=["markdown_text"]
-            )
-            chain = prompt | self.llm
-            response = chain.invoke({"markdown_text": markdown_text})
+            with SessionLocal() as db:
+                system_prompt = db.query(Prompt).filter(
+                    Prompt.user_id == self.user.id,
+                    Prompt.system_prompt == True,
+                    Prompt.type == Prompt.TYPE_CONVERT_MARKDOWN_TO_PLAIN_TEXT
+                ).first()
+                
+            self.setup_chain_from_prompt_id(system_prompt.id, 'gpt-4o-mini')
+            response = self.final_chain.invoke({"markdown_text": markdown_text})
             return response.content
         except Exception as e:
             logging.error(f"Error converting markdown to plain text: {str(e)}")
@@ -326,35 +244,15 @@ Provide ONLY the plain text version without any explanations.
     def convert_markdown_to_tweet_thread(self, markdown_text:str):
         """Convert markdown formatted text to a list of tweets suitable for a Twitter thread."""
         try:
-            self.setup_llm('gpt-4o-mini')
-            prompt = PromptTemplate(
-                template="""You are tasked with converting markdown text into a well-structured Twitter thread.
-
-    INSTRUCTIONS:
-    1. Break the content into multiple tweets of appropriate length (max 280 characters each)
-    2. Ensure each tweet can stand on its own while maintaining the flow of the thread
-    3. Keep emojis intact
-    4. Use markdown formatting in the tweets
-    5. Format hashtags properly (keep the # symbol)
-    6. Number each tweet in your response as "Tweet 1:", "Tweet 2:", etc.
-    7. Make the first tweet engaging to capture attention
-    8. End the thread with a compelling conclusion or call to action
-    9. Don't sacrifice important information just to fit character limits
-
-    MARKDOWN TEXT:
-    {markdown_text}
-
-    Format your response with each tweet clearly numbered and separated:
-    Tweet 1: [content of first tweet]
-    Tweet 2: [content of second tweet]
-    And so on...
-
-    Provide ONLY the formatted tweets without any explanations.
-                """,
-                input_variables=["markdown_text"]
-            )
-            chain = prompt | self.llm
-            response = chain.invoke({"markdown_text": markdown_text})
+            with SessionLocal() as db:
+                system_prompt = db.query(Prompt).filter(
+                    Prompt.user_id == self.user.id,
+                    Prompt.system_prompt == True,
+                    Prompt.type == Prompt.TYPE_CONVERT_MARKDOWN_TO_THREAD_LIST
+                ).first()
+                
+            self.setup_chain_from_prompt_id(system_prompt.id, 'gpt-4o-mini')
+            response = self.final_chain.invoke({"markdown_text": markdown_text})
             
             # Process the response to create a list of tweets
             tweet_list = []
@@ -391,34 +289,25 @@ Provide ONLY the plain text version without any explanations.
         
     def ignore_and_learn(self, comparison_id:int):
         try:
-            logging.warning(f"Starting ignore and learn process for comparison ID: {comparison_id}")
             with SessionLocal() as db:
                 comparison = db.query(BlogProfileComparison).get(comparison_id)
                 profile = db.query(Profile).filter(Profile.user_id == self.user.id).first()
                 article = comparison.article_text
-                self.setup_llm('gpt-4o')
-                prompt = PromptTemplate(
-                    template="""I'm gonna give you a text describing what type of articles interest me and i'm also going to give you an article that was suggested to me and i ended up not liking, i want you to improve the text describing what type of articles interest me so that this type of article don't ever fit again. Use examples. 
-I want you to reply only with my profile, nothing else. Here's my profile/type of articles that interest me:
-
-{profile}
-
-Improve my profile""",
-                    input_variables=["profile"]
-                )
-                chain = prompt | self.llm
-                response = chain.invoke({"profile": profile.interests_description})
-                logging.warning(f"Completed ignore and learn for comparison ID: {comparison_id}")
-                return response.content
+                system_prompt = db.query(Prompt).filter(
+                    Prompt.user_id == self.user.id,
+                    Prompt.system_prompt == True,
+                    Prompt.type == Prompt.TYPE_IGNORE_AND_LEARN
+                ).first()
+                
+            self.setup_chain_from_prompt_id(system_prompt.id, 'gpt-4o')
+            response = self.final_chain.invoke({"profile": profile.interests_description, "article": article})
+            return response.content
         except Exception as e:
             logging.error(f"Error in ignore and learn: {str(e)}")
             raise e
 
                 
                     
-        
-            
-
 if __name__ == "__main__":
     from app.database.database import SessionLocal
     from app.database.models import User
