@@ -6,7 +6,7 @@ import logging
 import os
 import secrets
 from ..core.helper_handlers import Schedule_Handler, Blog_Profile_Comparison_Handler, LinkedIn_Client_Handler, X_Client_Handler
-from ..celery_worker.tasks import comparison_draft, draft_draft, draft_group
+from ..celery_worker.tasks import comparison_draft, draft_draft, draft_group,ignore_and_learn_task
 
 
 
@@ -484,6 +484,30 @@ def draft_groups():
         }), 200
     except Exception as e:
         logging.error(f"Error drafting group: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+@api.route('/comparison/ignore_and_learn', methods=['POST'])
+@login_required
+def ignore_and_learn():
+    try:
+        data = request.get_json()
+        comparison_id = data.get('comparison_id')
+        if not comparison_id:
+            return jsonify({
+                "status": "error",
+                "message": "Comparison ID is required"
+            }), 400
+        logging.warning(f"User {current_user.id} is ignoring and learning from comparison {comparison_id}")
+        ignore_and_learn_task.delay(user_id=current_user.id, comparison_id=comparison_id)
+        return jsonify({
+            "status": "success",
+            "message": "Ignore and learn started"
+        }), 200
+    except Exception as e:
+        logging.error(f"Error in ignore and learn: {str(e)}")
         return jsonify({
             "status": "error",
             "message": str(e)

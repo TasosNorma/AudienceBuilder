@@ -302,3 +302,21 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
             blog.error_message = str(e)
             db.commit()
         raise e
+
+@celery_app.task(bind=True)
+def ignore_and_learn_task(self,user_id:int, comparison_id:int):
+    try:
+        logging.warning(f"Starting ignore and learn task for user {user_id} and comparison {comparison_id}")
+        with SessionLocal() as db:
+            comparison = db.query(BlogProfileComparison).get(comparison_id)
+            user = db.query(User).get(user_id)
+            processor = SyncAsyncContentProcessor(user)
+            new_profile_description = processor.ignore_and_learn(comparison_id)
+            profile = db.query(Profile).filter_by(user_id=user_id).first()
+            profile.interests_description = new_profile_description
+            comparison.status = BlogProfileComparison.STATUS_INGNORED_COMPARISON
+            db.commit()
+            logging.warning(f"Successfully completed ignore and learn task for user {user_id} and comparison {comparison_id}")
+    except Exception as e:
+        logging.error(f"Error in the ignore and learn task: {str(e)}")
+        raise e

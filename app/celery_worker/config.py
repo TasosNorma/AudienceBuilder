@@ -37,7 +37,8 @@ celery_app.conf.update(
         'app.celery_worker.tasks.blog_analyse': {'queue': 'content_processing'},
         'app.celery_worker.tasks.comparison_draft': {'queue': 'content_processing'},
         'app.celery_worker.tasks.draft_draft': {'queue': 'content_processing'},
-        'app.celery_worker.tasks.draft_group': {'queue': 'content_processing'}
+        'app.celery_worker.tasks.draft_group': {'queue': 'content_processing'},
+        'app.celery_worker.tasks.ignore_and_learn_task': {'queue': 'content_processing'}
     },
     
     # Task execution settings

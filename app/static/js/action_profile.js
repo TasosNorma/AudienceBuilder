@@ -285,3 +285,33 @@ document.querySelectorAll('[id^="groupDropdown"]').forEach(button => {
         }
     });
 });
+
+// add event listener to ignore and learn
+document.querySelectorAll('.ignore-and-learn').forEach(button => {
+    button.addEventListener('click', async function() {
+        const comparison_id = this.getAttribute('comparison_id');
+        if (confirm('This will change your profile description, are you sure you want to do this?')) {
+            try {
+                const response = await fetch(`/comparison/ignore_and_learn`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': window.csrfToken
+                    },
+                    body: JSON.stringify({
+                        comparison_id: comparison_id
+                    })
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    window.location.reload();
+                } else {
+                    alert(result.message);
+                }
+            } catch (error) {
+                console.error('Error ignoring and learning:', error);
+                alert(`Error ignoring and learning: ${error.message}`);
+            }
+        }
+    });
+});

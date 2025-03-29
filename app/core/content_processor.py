@@ -36,6 +36,7 @@ class SyncAsyncContentProcessor:
                 )
             self.llm = self.setup_llm(model_name)
             self.final_chain = self.prompt_template | self.llm
+            return self.final_chain
         
         except Exception as e:
             logging.error(f"Error setting up chain: {str(e)}")
@@ -152,7 +153,6 @@ class SyncAsyncContentProcessor:
             logging.error(f"Error processing group: {str(e)}")
             raise e
         
-
     def write_small_summary(self, url:str):
         try:
             loop = asyncio.new_event_loop()
@@ -389,6 +389,34 @@ Provide ONLY the plain text version without any explanations.
             logging.error(f"Error creating prompt for deep research: {str(e)}")
             raise e
         
+    def ignore_and_learn(self, comparison_id:int):
+        try:
+            logging.warning(f"Starting ignore and learn process for comparison ID: {comparison_id}")
+            with SessionLocal() as db:
+                comparison = db.query(BlogProfileComparison).get(comparison_id)
+                profile = db.query(Profile).filter(Profile.user_id == self.user.id).first()
+                article = comparison.article_text
+                self.setup_llm('gpt-4o')
+                prompt = PromptTemplate(
+                    template="""I'm gonna give you a text describing what type of articles interest me and i'm also going to give you an article that was suggested to me and i ended up not liking, i want you to improve the text describing what type of articles interest me so that this type of article don't ever fit again. Use examples. 
+I want you to reply only with my profile, nothing else. Here's my profile/type of articles that interest me:
+
+{profile}
+
+Improve my profile""",
+                    input_variables=["profile"]
+                )
+                chain = prompt | self.llm
+                response = chain.invoke({"profile": profile.interests_description})
+                logging.warning(f"Completed ignore and learn for comparison ID: {comparison_id}")
+                return response.content
+        except Exception as e:
+            logging.error(f"Error in ignore and learn: {str(e)}")
+            raise e
+
+                
+                    
+        
             
 
 if __name__ == "__main__":
@@ -398,7 +426,7 @@ if __name__ == "__main__":
         with SessionLocal() as db:
             user = db.query(User).get(30)  # Using a test user ID
             processor = SyncAsyncContentProcessor(user)
-            article = processor.extract_article_content("https://www.bloomberg.com/news/articles/2025-03-03/alibaba-backed-zhipu-raises-140-million-as-deepseek-heats-up-ai?srnd=phx-technology")
+            article = processor.extract_all_articles_from_page("https://www.snowflake.com/en/blog/")
             print(article)
     except Exception as e:
         print(f"Error occurred: {e}")
