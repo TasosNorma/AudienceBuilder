@@ -192,6 +192,36 @@
                     </div>
                 </div>
                 {% endif %}
+                <!-- Similar Article Card -->
+                {% if duplicate_articles %}
+                <div class="card mb-4 border-warning">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+                            Duplicate Articles Detected
+                        </h5>
+                        <p class="mb-2">This article appears to cover similar topics to the following articles:</p>
+                        <div class="list-group mb-3">
+                            {% for article in duplicate_articles %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div class="fw-bold mb-1">{{ article.title }}</div>
+                                        <div class="text-muted small">{{ article.url }}</div>
+                                    </div>
+                                    <a href="{{ url_for('tmpl.action_profile', comparison_id=article.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-link-45deg"></i> View Article
+                                    </a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <p class="text-muted small">
+                            <i class="bi bi-info-circle"></i> These articles were automatically marked as not relevant to avoid duplicate content.
+                        </p>
+                    </div>
+                </div>
+                {% endif %}
 
                 <!-- Profile Interests -->
                 <div class="card mb-4">

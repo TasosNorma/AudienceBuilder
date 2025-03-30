@@ -6,7 +6,7 @@ from celery.exceptions import SoftTimeLimitExceeded
 from datetime import datetime, timezone
 import asyncio
 import logging
-
+from datetime import timedelta
 
 
 @celery_app.task(bind=True)
@@ -268,12 +268,33 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
                         if not short_summary:
                             continue
                         relevance_result = processor.is_article_relevant_short_summary(short_summary)
-                        blog_comparison.comparison_result = True if relevance_result else False
+                        # Check if there are any duplicates
                         if relevance_result:
-                            blog_comparison.status = BlogProfileComparison.STATUS_ACTION_PENDING_TO_DRAFT
-                            fitting_articles += 1
-                        else:
-                            blog_comparison.status = BlogProfileComparison.STATUS_DEEMED_NOT_RELEVANT
+                            similar_comparisons = db.query(BlogProfileComparison).filter(
+                            BlogProfileComparison.user_id == user_id,
+                            BlogProfileComparison.status.in_([
+                                BlogProfileComparison.STATUS_ACTION_PENDING_TO_DRAFT,
+                                BlogProfileComparison.STATUS_ACTION_PENDING_TO_POST,
+                                BlogProfileComparison.STATUS_DRAFTING,
+                                BlogProfileComparison.STATUS_POSTED_LINKEDIN
+                            ]),
+                            BlogProfileComparison.created_at >= datetime.utcnow() - timedelta(days=7)
+                            ).all()
+
+                            # Create dictionary of recent positive comparisons
+                            similar_article_dict = {comp.id: comp.title for comp in similar_comparisons if comp.title}
+
+                            # Check if the current comparison title is similar to any of the recent positive comparisons
+                            duplicate_article_id = processor.check_title_similarity(blog_comparison.title, similar_article_dict)
+
+                            if duplicate_article_id != 'No':
+                                blog_comparison.duplicate_article_id = duplicate_article_id
+                                blog_comparison.comparison_result = True
+                                blog_comparison.status = BlogProfileComparison.STATUS_ACTION_PENDING_TO_DRAFT
+                                fitting_articles += 1
+                            else:
+                                blog_comparison.comparison_result = False
+                                blog_comparison.status = BlogProfileComparison.STATUS_DEEMED_NOT_RELEVANT
                     except Exception as e:
                         blog_comparison.status = BlogProfileComparison.STATUS_FAILED_ON_COMPARISON
                         blog_comparison.error_message =str(e)

@@ -256,4 +256,27 @@ Improve my profile""",
         "system_prompt": True,
         "deep_research_prompt": None
     },
+    {
+        "name": "Check Title Similarity",
+        "type": Prompt.TYPE_CHECK_TITLE_SIMILARITY,
+        "description": "Checks if a new article title is similar to any existing titles",
+        "template": """You are helping to identify duplicate or very similar articles.
+    Given a new article title and a list of existing article titles, determine if the new title 
+    refers to the same news story or topic as any of the existing titles.
+
+    New article title: {new_title}
+
+    Existing article titles with IDs:
+    {existing_titles}
+
+    If the new article title refers to the same news story or topic as any of the existing titles,
+    respond with only the ID of the most similar article. Respond just with the number of the ID, for example if the ID is 123 respond with "123". 
+    If there are no similar articles, respond with only "No". 
+
+    Your response:""",
+        "input_variables": ["new_title", "existing_titles"],
+        "is_active": True,
+        "system_prompt": True,
+        "deep_research_prompt": None
+    }
 ]

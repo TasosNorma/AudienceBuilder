@@ -301,6 +301,81 @@ class SyncAsyncContentProcessor:
         except Exception as e:
             logging.error(f"Error in ignore and learn: {str(e)}")
             raise e
+    
+    def check_title_similarity(self, title, existing_titles_dict):
+        """
+        Checks if a title is similar to any existing titles from the past week.
+        
+        Args:
+            title (str): The title to check
+            existing_titles_dict (dict): Dictionary of id:title pairs to compare against
+            
+        Returns:
+            str: The ID of the similar article if found, "No" if not similar
+        """
+        try:
+            with SessionLocal() as db:
+                system_prompt = db.query(Prompt).filter(
+                    Prompt.user_id == self.user.id,
+                    Prompt.system_prompt == True,
+                    Prompt.type == Prompt.TYPE_CHECK_TITLE_SIMILARITY
+                ).first()
+                
+                if not system_prompt:
+                    # If no specific similarity prompt exists, use a default approach
+                    self.llm = self.setup_llm('gpt-4o-mini')
+                    prompt_template = PromptTemplate(
+                        template="""You are helping to identify duplicate or very similar articles.
+    Given a new article title and a list of existing article titles, determine if the new title 
+    refers to the same news story or topic as any of the existing titles.
+
+    New article title: {new_title}
+
+    Existing article titles with IDs:
+    {existing_titles}
+
+    If the new article title refers to the same news story or topic as any of the existing titles,
+    respond with only the ID of the most similar article. Respond just with the number of the ID, for example if the ID is 123 respond with "123". If there are no similar articles,
+    respond with only "No".
+
+    Your response:""",
+                        input_variables=["new_title", "existing_titles"]
+                    )
+                    
+                    # Format the existing titles dictionary for the prompt
+                    existing_titles_formatted = "\n".join([f"ID {k}: {v}" for k, v in existing_titles_dict.items()])
+                    
+                    # Call the LLM
+                    chain = prompt_template | self.llm
+                    response = chain.invoke({
+                        "new_title": title,
+                        "existing_titles": existing_titles_formatted
+                    })
+                    
+                    # Process the response - we expect either an ID or "No"
+                    result = response.content.strip()
+                    
+                    # If result starts with "ID", extract just the number
+                    if result.startswith("ID "):
+                        result = result.split("ID ")[1].split(":")[0].strip()
+                    
+                    return result
+                else:
+                    self.setup_chain_from_prompt_id(system_prompt.id, 'gpt-4o-mini')
+                    
+                    # Format the existing titles dictionary for the prompt
+                    existing_titles_formatted = "\n".join([f"ID {k}: {v}" for k, v in existing_titles_dict.items()])
+                    
+                    response = self.final_chain.invoke({
+                        "new_title": title,
+                        "existing_titles": existing_titles_formatted
+                    })
+                    
+                    return response.content.strip()
+        except Exception as e:
+            logging.error(f"Error checking title similarity: {str(e)}")
+            # On error, return "No" to be safe (don't want to incorrectly mark as duplicate)
+            return "No"
 
                 
                     

@@ -20,7 +20,7 @@ class Prompt(Base):
     TYPE_CONVERT_MARKDOWN_TO_PLAIN_TEXT = 5
     TYPE_CONVERT_MARKDOWN_TO_THREAD_LIST = 6
     TYPE_IGNORE_AND_LEARN = 7
-
+    TYPE_CHECK_TITLE_SIMILARITY = 8
 
     id = Column(Integer, primary_key=True)
     type = Column(Integer,nullable=False)
@@ -194,6 +194,7 @@ class BlogProfileComparison(Base):
     past_blog_id = Column(Integer, ForeignKey('blogs.id'),nullable=True)
     group_id = Column(Integer, ForeignKey('groups.id'),nullable=True)
     article_text = Column(Text, nullable=True)
+    duplicate_article_id = Column(Integer, nullable=True)
 
 class Group(Base):
     __tablename__ = 'groups'

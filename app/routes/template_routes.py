@@ -157,6 +157,11 @@ def action_profile(comparison_id):
         try:
             comparison = db.query(BlogProfileComparison).get(comparison_id)
             post = db.query(Post).filter(Post.blog_comparison_id==comparison_id, Post.user_id==current_user.id).first()
+
+            duplicate_articles = db.query(BlogProfileComparison).filter(
+                BlogProfileComparison.duplicate_article_id == comparison_id,
+                BlogProfileComparison.user_id == current_user.id
+            ).all()
             
             # Fetch groups this comparison is part of
             groups = db.query(Group)\
@@ -164,7 +169,7 @@ def action_profile(comparison_id):
                 .filter(Group_Comparison.blog_profile_comparison_id == comparison_id)\
                 .all()
                 
-            return render_template('action_profile.html', comparison=comparison, post=post, Post=Post, groups=groups)
+            return render_template('action_profile.html', comparison=comparison, post=post, Post=Post, groups=groups, duplicate_articles=duplicate_articles)
         except Exception as e:
             logging.error(f"Couldn't get comparison with id {comparison_id} error: {e}")
             flash(f"Unexpected error: {str(e)}", 'error')
