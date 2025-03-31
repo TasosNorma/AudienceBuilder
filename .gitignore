@@ -6,4 +6,6 @@ alembic
 infra/.env
 infra/docker-compose.local.yml
 alembic.ini
+alembic
+
 
