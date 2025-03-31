@@ -282,33 +282,36 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
                             ).all()
 
                             # Create dictionary of recent positive comparisons
-                            similar_article_dict = {comp.id: comp.title for comp in similar_comparisons if comp.title}
+                            potential_similar_article_dict = {comp.id: comp.title for comp in similar_comparisons if comp.title}
 
                             # Check if the current comparison title is similar to any of the recent positive comparisons
-                            duplicate_article_id = processor.check_title_similarity(blog_comparison.title, similar_article_dict)
+                            duplicate_article_id = processor.check_title_similarity(blog_comparison.title, potential_similar_article_dict)
 
                             if duplicate_article_id != 'No':
+                                logging.warning(f"Found duplicate article ID: {duplicate_article_id}")
                                 blog_comparison.duplicate_article_id = duplicate_article_id
+                                blog_comparison.comparison_result = False
+                                blog_comparison.status = BlogProfileComparison.STATUS_DEEMED_NOT_RELEVANT
+                            else:
                                 blog_comparison.comparison_result = True
                                 blog_comparison.status = BlogProfileComparison.STATUS_ACTION_PENDING_TO_DRAFT
                                 fitting_articles += 1
-                            else:
-                                blog_comparison.comparison_result = False
-                                blog_comparison.status = BlogProfileComparison.STATUS_DEEMED_NOT_RELEVANT
+                        else:
+                            blog_comparison.comparison_result = False
+                            blog_comparison.status = BlogProfileComparison.STATUS_DEEMED_NOT_RELEVANT
                     except Exception as e:
                         blog_comparison.status = BlogProfileComparison.STATUS_FAILED_ON_COMPARISON
                         blog_comparison.error_message =str(e)
                         blog_comparison.comparison_result = None
                         logging.error(f"Failed to process comparison for URL {blog_comparison.url}: {str(e)}")
                     db.commit()
-                logging.info(f"Compared {len(blog_comparisons)} articles to the user profile")
         
         with SessionLocal() as db:
             blog = db.query(Blog).get(blog_id)
             blog.status = Blog.COMPLETED
             blog.number_of_fitting_articles = fitting_articles
             db.commit()
-            logging.info(f"Blog analysis completed for blog_id {blog_id}, user_id {user_id} with {fitting_articles} fitting articles")
+            logging.warning(f"Blog analysis completed for blog_id {blog_id}, user_id {user_id} with {fitting_articles} fitting articles")
     except SoftTimeLimitExceeded:
         logging.error(f"Soft time limit exceeded for blog {blog_id} for user {user_id}")
         with SessionLocal() as db:
