@@ -6,28 +6,12 @@ import logging
 import os
 import secrets
 from ..core.helper_handlers import Blog_Profile_Comparison_Handler, LinkedIn_Client_Handler, X_Client_Handler, AirflowHandler
-from ..celery_worker.tasks import comparison_draft, draft_draft, draft_group,ignore_and_learn_task
+from ..celery_worker.tasks import draft_group,ignore_and_learn_task
 
 
 
 api = Blueprint('api',__name__)
 
-# # Disables a schedule
-# @api.route('/disable_schedule/<int:schedule_id>', methods=['POST'])
-# @login_required
-# def disable_schedule(schedule_id):
-#     try:
-#         schedule_handler = Schedule_Handler(current_user.id)
-#         schedule_handler.disable_schedule(schedule_id)
-#         return jsonify({
-#             "status": "success"
-#         })
-#     except Exception as e:
-#         logging.error(f"Error disabling schedule: {str(e)}")
-#         return jsonify({
-#             "status": "error",
-#             "message": str(e)
-#         })
 
 @api.route('/comparison/<int:comparison_id>/ignore', methods=['POST'])
 @login_required
@@ -77,7 +61,7 @@ def draft_comparison():
                 "status": "error",
                 "message": "Comparison ID and prompt ID are required"
             })
-        comparison_draft.delay(comparison_id = comparison_id, prompt_id = prompt_id, user_id = current_user.id)
+        AirflowHandler().trigger_dag(dag_id='draft_action_task', conf={'action_id': comparison_id, 'prompt_id': prompt_id, 'user_id': current_user.id})
         return jsonify({
             "status": "success"
         })
@@ -492,7 +476,7 @@ def draft_groups():
                 "message": "Group ID is required"
             }), 400
         
-        draft_group.delay(group_id=group_id, prompt_id=prompt_id, user_id=current_user.id)
+        AirflowHandler().trigger_dag(dag_id='draft_group_task', conf={'group_id': group_id, 'prompt_id': prompt_id, 'user_id': current_user.id})
 
         return jsonify({
             "status": "success",
@@ -517,7 +501,7 @@ def ignore_and_learn():
                 "message": "Comparison ID is required"
             }), 400
         logging.warning(f"User {current_user.id} is ignoring and learning from comparison {comparison_id}")
-        ignore_and_learn_task.delay(user_id=current_user.id, comparison_id=comparison_id)
+        AirflowHandler().trigger_dag(dag_id='ignore_and_learn_task', conf={'user_id': current_user.id, 'comparison_id': comparison_id})
         return jsonify({
             "status": "success",
             "message": "Ignore and learn started"

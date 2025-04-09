@@ -377,19 +377,7 @@ class SyncAsyncContentProcessor:
             # On error, return "No" to be safe (don't want to incorrectly mark as duplicate)
             return "No"
 
-                
-                    
-if __name__ == "__main__":
-    from app.database.database import SessionLocal
-    from app.database.models import User
-    try:
-        with SessionLocal() as db:
-            user = db.query(User).get(30)  # Using a test user ID
-            processor = SyncAsyncContentProcessor(user)
-            article = processor.extract_all_articles_from_page("https://www.snowflake.com/en/blog/")
-            print(article)
-    except Exception as e:
-        print(f"Error occurred: {e}")
+                               
 
             
 

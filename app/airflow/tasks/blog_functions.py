@@ -1,155 +1,29 @@
-from app.celery_worker.config import celery_app
-from app.core.content_processor import SyncAsyncContentProcessor
 from app.database.database import SessionLocal
-from app.database.models import User, Post, ProfileComparison, Profile, Blog, BlogProfileComparison, Schedule, Prompt
-from celery.exceptions import SoftTimeLimitExceeded
-from datetime import datetime, timezone
-import asyncio
+from app.database.models import User, Post, BlogProfileComparison, Blog, Schedule, Profile
+from app.core.content_processor import SyncAsyncContentProcessor
+from datetime import datetime, timezone, timedelta
 import logging
-from datetime import timedelta
 
 
-@celery_app.task(bind=True)
-def draft_draft(self, url:str, prompt_id:int, user_id:int):
-    post_id = None
-    try:
-        with SessionLocal() as db:
-            post = Post(
-                user_id=user_id,
-                url=url,
-                status=Post.PROCESSING,
-                created_at_utc=datetime.now(timezone.utc)
-            )
-            db.add(post)
-            db.commit()
-            db.flush()
-            post_id = post.id
-            user = db.query(User).get(user_id)
-            processor = SyncAsyncContentProcessor(user)
-            post.markdown_text = processor.draft(url=url,prompt_id=prompt_id)
-            post.plain_text = processor.convert_markdown_to_plain_text(post.markdown_text)
-            post.thread_list_text = processor.convert_markdown_to_tweet_thread(post.markdown_text)
-            post.status = Post.GENERATED
-            db.commit()
-    except Exception as e:
-        with SessionLocal() as db:
-            post = db.query(Post).get(post_id)
-            post.status = Post.FAILED
-            post.error_message = str(e)
-            db.commit()
-        logging.error(f"Error drafting draft: {str(e)}")
-        raise e
+def blog_analyse( url: str, user_id: int, schedule_id: int = None):
+    """
+    Takes a url, user_id and schedule_id.
+    Creates a blog object and extracts all articles from the url.
+    Creates a blog profile comparison object for each article and checks if the article has been processed in the past.
+    If it has, it marks the blog profile comparison as processed in past blog.
+    If it has not, it creates a new blog profile comparison object and checks if the article is relevant.
+    If it is not relevant, it marks the blog profile comparison as deemed not relevant.
+    If it is relevant,
+    - it writes the short summary and the article text to the blog profile comparison object.
+    - it checks if the article is similar to any recent positive comparisons.
+    - if it is, it marks the blog profile comparison as deemed not relevant.
+    - if it is not, it marks the blog profile comparison as action pending to draft.
+    - it updates the blog object with the number of fitting articles.
 
-@celery_app.task(bind=True)
-def draft_group(self, group_id:int, prompt_id:int, user_id:int):
-    post_id = None
-    try:
-        with SessionLocal() as db:
-            post = Post(
-                user_id=user_id,
-                status=Post.PROCESSING,
-                created_at_utc=datetime.now(timezone.utc),
-                group_id=group_id
-            )
-            db.add(post)
-            db.commit()
-            db.flush()
-            post_id = post.id
-            user = db.query(User).get(user_id)
-            processor = SyncAsyncContentProcessor(user)
-            post.markdown_text = processor.draft(group_id=group_id,prompt_id=prompt_id)
-            post.plain_text = processor.convert_markdown_to_plain_text(post.markdown_text)
-            post.thread_list_text = processor.convert_markdown_to_tweet_thread(post.markdown_text)
-            post.status = Post.GENERATED
-            db.commit()
-    except Exception as e:
-        with SessionLocal() as db:
-            post = db.query(Post).get(post_id)
-            post.status = Post.FAILED
-            post.error_message = str(e)
-            db.commit()
-        logging.error(f"Error drafting group: {str(e)}")
-        raise e
-
-# Is called by the profile_compare route and creates a profile_comparison object that judges whether or not the url fits the profile.
-@celery_app.task(bind=True)
-def compare_profile_task(self, url: str, user_id: int):
-    with SessionLocal() as db:
-        try:
-            profile = db.query(Profile).filter_by(user_id=user_id).first()
-            user = db.query(User).get(user_id)
-            profile_comparison = ProfileComparison(
-                    user_id=user_id,
-                    url=url,
-                    status=ProfileComparison.PROCESSING,
-                    created_at=datetime.utcnow(),
-                    profile_interests=profile.interests_description 
-                )
-            db.add(profile_comparison)
-            db.commit()
-            db.flush()
-
-            processor = SyncAsyncContentProcessor(user)
-            short_summary = processor.write_small_summary(profile_comparison.url)
-            relevance_result = processor.is_article_relevant_short_summary(
-                short_summary=short_summary
-            )
-
-            profile_comparison.comparison_result = relevance_result
-            profile_comparison.short_summary = short_summary
-            profile_comparison.status = ProfileComparison.COMPLETED
-        except Exception as e:
-            profile_comparison.error_message= str(e)
-            profile_comparison.status = ProfileComparison.FAILED
-            raise e
-        db.commit()
-
-@celery_app.task(bind=True)
-def comparison_draft(self, user_id:int, comparison_id:int, prompt_id:int):
-    post_id = None
-    try: 
-        with SessionLocal() as db:
-            comparison = db.query(BlogProfileComparison).get(comparison_id)
-            comparison.status = BlogProfileComparison.STATUS_DRAFTING
-            url = comparison.url
-            user = db.query(User).get(user_id)
-            post = Post(
-                user_id=user_id,
-                url=url,
-                status=Post.PROCESSING,
-                created_at_utc=datetime.now(timezone.utc),
-                blog_comparison_id = comparison_id
-            )
-            db.add(post)
-            db.commit()
-            db.flush() # Flushes pending changes to the DB so that post.id is populated.
-            post_id = post.id
-            processor = SyncAsyncContentProcessor(user)
-            post.markdown_text = processor.draft(url,prompt_id)
-            post.plain_text = processor.convert_markdown_to_plain_text(post.markdown_text)
-            post.thread_list_text = processor.convert_markdown_to_tweet_thread(post.markdown_text)
-            post.status = Post.GENERATED
-            db.commit()
-            db.flush()
-            # Get a fresh comparison object from the database in order to update it.
-            comparison = db.query(BlogProfileComparison).get(comparison_id)
-            comparison.post_id = post.id
-            comparison.status = BlogProfileComparison.STATUS_ACTION_PENDING_TO_POST
-            db.commit()
-    except Exception as e:
-        logging.error(f"Error processing comparison {comparison_id}  : {str(e)}")
-        with SessionLocal() as db:
-            post = db.query(Post).get(post_id)
-            post.status = Post.FAILED
-            post.error_message = str(e)
-            comparison = db.query(BlogProfileComparison).get(comparison_id)
-            comparison.status = BlogProfileComparison.STATUS_FAILED_ON_DRAFT
-            comparison.error_message = str(e)
-            db.commit()
-        raise e
-
-@celery_app.task(bind=True)
-def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
+    Other features:
+    - If the blog is triggered by a schedule, it updates the schedule last run at and attaches the schedule id to the blog object.
+    - If the article was already processed in a past blog, it attaches the past blog id to the blog profile comparison object (the original one).
+    """
     try:
         blog_id = None
         articles = []
@@ -290,10 +164,8 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
                             if duplicate_article_id != 'No':
                                 logging.warning(f"Found duplicate article ID: {duplicate_article_id}")
                                 blog_comparison.duplicate_article_id = duplicate_article_id
-                                blog_comparison.comparison_result = False
-                                blog_comparison.status = BlogProfileComparison.STATUS_DEEMED_NOT_RELEVANT
+                                blog_comparison.status = BlogProfileComparison.STATUS_DUPLICATE_ARTICLE
                             else:
-                                blog_comparison.comparison_result = True
                                 blog_comparison.status = BlogProfileComparison.STATUS_ACTION_PENDING_TO_DRAFT
                                 fitting_articles += 1
                         else:
@@ -312,14 +184,6 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
             blog.number_of_fitting_articles = fitting_articles
             db.commit()
             logging.warning(f"Blog analysis completed for blog_id {blog_id}, user_id {user_id} with {fitting_articles} fitting articles")
-    except SoftTimeLimitExceeded:
-        logging.error(f"Soft time limit exceeded for blog {blog_id} for user {user_id}")
-        with SessionLocal() as db:
-            blog = db.query(Blog).get(blog_id)
-            blog.status = Blog.FAILED
-            blog.error_message = "Task timed out, please contact support"
-            db.commit()
-        raise 
     except Exception as e:
         logging.error(f"Error in the second step of processing blog {blog_id} for user {user_id}: {str(e)}")
         with SessionLocal() as db:
@@ -327,22 +191,4 @@ def blog_analyse(self, url: str, user_id: int, schedule_id: int = None):
             blog.status = Blog.FAILED
             blog.error_message = str(e)
             db.commit()
-        raise e
-
-@celery_app.task(bind=True)
-def ignore_and_learn_task(self,user_id:int, comparison_id:int):
-    try:
-        logging.warning(f"Starting ignore and learn task for user {user_id} and comparison {comparison_id}")
-        with SessionLocal() as db:
-            comparison = db.query(BlogProfileComparison).get(comparison_id)
-            user = db.query(User).get(user_id)
-            processor = SyncAsyncContentProcessor(user)
-            new_profile_description = processor.ignore_and_learn(comparison_id)
-            profile = db.query(Profile).filter_by(user_id=user_id).first()
-            profile.interests_description = new_profile_description
-            comparison.status = BlogProfileComparison.STATUS_INGNORED_COMPARISON
-            db.commit()
-            logging.warning(f"Successfully completed ignore and learn task for user {user_id} and comparison {comparison_id}")
-    except Exception as e:
-        logging.error(f"Error in the ignore and learn task: {str(e)}")
         raise e

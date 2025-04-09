@@ -176,6 +176,7 @@ class BlogProfileComparison(Base):
     STATUS_POSTED_X = 'Posted X' # Posted to X
     STATUS_FAILED_ON_DRAFT = 'Failed on Draft' # Failed while generating draft
     STATUS_FAILED = 'Failed' #This is on random failures not attributed to important tasks
+    STATUS_DUPLICATE_ARTICLE = 'Duplicate Article' # Article is a duplicate of a previous article
 
 
     id = Column(Integer, primary_key=True)

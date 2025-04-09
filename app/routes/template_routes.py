@@ -6,7 +6,7 @@ from ..database.database import SessionLocal
 from ..database.models import Prompt, Profile, User, Post,Schedule, Blog, BlogProfileComparison,ProfileComparison, Group, Group_Comparison
 import logging
 from cryptography.fernet import Fernet
-from ..core.helper_handlers import User_Handler, LinkedIn_Auth_Handler, X_Auth_Handler
+from ..core.helper_handlers import User_Handler, LinkedIn_Auth_Handler, X_Auth_Handler, AirflowHandler
 from flask_wtf.csrf import generate_csrf
 from time import sleep
 from urllib.parse import urlencode
@@ -383,7 +383,7 @@ def profile_compare():
     with SessionLocal() as db:
         try:
             if form.validate_on_submit():
-                compare_profile_task.delay(user_id=current_user.id,url=form.article_url.data)
+                AirflowHandler().trigger_dag(dag_id='profile_compare_task', conf={'url': form.article_url.data, 'user_id': current_user.id})
                 sleep(1)
                 flash('Comparison started. Please wait while we process your request.', 'info')
                 return redirect(url_for('tmpl.profile_compare'))
@@ -426,7 +426,7 @@ def blogs():
             .all()
         
         if form.validate_on_submit():
-            blog_analyse.delay(user_id = current_user.id , url = form.url.data)
+            AirflowHandler().trigger_dag(dag_id='blog_analyse_task', conf={'url': form.url.data, 'user_id': current_user.id})
             flash('Blog Analysis started. Please wait while we process your request.', 'info')
             sleep(1)
             return(redirect(url_for('tmpl.blogs')))
