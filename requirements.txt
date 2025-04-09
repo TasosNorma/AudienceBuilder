@@ -23,10 +23,8 @@ gunicorn==21.2.0
 asgiref==3.7.2
 pyee==12.0.0
 greenlet==3.1.1
-celery==5.4.0
 redis==5.2.1
 flower==2.0.1
-sqlalchemy_celery_beat==0.8.0
 emoji == 2.14.1
 markdown==3.4.1
 requests_oauthlib==1.3.1

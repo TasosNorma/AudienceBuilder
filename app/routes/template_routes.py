@@ -10,7 +10,6 @@ from ..core.helper_handlers import User_Handler, LinkedIn_Auth_Handler, X_Auth_H
 from flask_wtf.csrf import generate_csrf
 from time import sleep
 from urllib.parse import urlencode
-from app.celery_worker.tasks import compare_profile_task, blog_analyse
 import secrets
 import markdown
 import re

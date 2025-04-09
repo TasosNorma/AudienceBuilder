@@ -6,8 +6,6 @@ import logging
 import os
 import secrets
 from ..core.helper_handlers import Blog_Profile_Comparison_Handler, LinkedIn_Client_Handler, X_Client_Handler, AirflowHandler
-from ..celery_worker.tasks import draft_group,ignore_and_learn_task
-
 
 
 api = Blueprint('api',__name__)
