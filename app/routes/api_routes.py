@@ -5,29 +5,29 @@ from ..database.models import BlogProfileComparison,Post, Prompt, Group, Group_C
 import logging
 import os
 import secrets
-from ..core.helper_handlers import Schedule_Handler, Blog_Profile_Comparison_Handler, LinkedIn_Client_Handler, X_Client_Handler
+from ..core.helper_handlers import Blog_Profile_Comparison_Handler, LinkedIn_Client_Handler, X_Client_Handler, AirflowHandler
 from ..celery_worker.tasks import comparison_draft, draft_draft, draft_group,ignore_and_learn_task
 
 
 
 api = Blueprint('api',__name__)
 
-# Disables a schedule
-@api.route('/disable_schedule/<int:schedule_id>', methods=['POST'])
-@login_required
-def disable_schedule(schedule_id):
-    try:
-        schedule_handler = Schedule_Handler(current_user.id)
-        schedule_handler.disable_schedule(schedule_id)
-        return jsonify({
-            "status": "success"
-        })
-    except Exception as e:
-        logging.error(f"Error disabling schedule: {str(e)}")
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        })
+# # Disables a schedule
+# @api.route('/disable_schedule/<int:schedule_id>', methods=['POST'])
+# @login_required
+# def disable_schedule(schedule_id):
+#     try:
+#         schedule_handler = Schedule_Handler(current_user.id)
+#         schedule_handler.disable_schedule(schedule_id)
+#         return jsonify({
+#             "status": "success"
+#         })
+#     except Exception as e:
+#         logging.error(f"Error disabling schedule: {str(e)}")
+#         return jsonify({
+#             "status": "error",
+#             "message": str(e)
+#         })
 
 @api.route('/comparison/<int:comparison_id>/ignore', methods=['POST'])
 @login_required
@@ -110,15 +110,26 @@ def drafts_draft():
         data = request.get_json()
         url = data.get('url')
         prompt_id = data.get('prompt_id')
-        # print(url, prompt_id)
         
         if not url or not prompt_id:
             return jsonify({
                 "status": "error",
                 "message": "URL and prompt_id are required"
             })
-            
-        draft_draft.delay(url=url, prompt_id=prompt_id, user_id=current_user.id)
+        
+        # Initialize AirflowHandler to trigger DAG
+        airflow_handler = AirflowHandler()
+        
+        # Prepare configuration for the DAG run
+        conf = {
+            "url": url,
+            "prompt_id": prompt_id,
+            "user_id": current_user.id
+        }
+        
+        # Trigger the DAG
+        airflow_handler.trigger_dag(dag_id="draft_draft_task", conf=conf)
+        
         return jsonify({
             "status": "success",
             "message": "Draft generation started"

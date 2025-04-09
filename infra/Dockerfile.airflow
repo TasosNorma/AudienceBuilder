@@ -1,0 +1,29 @@
+FROM apache/airflow:2.8.1
+
+# Install dependencies
+COPY requirements-airflow.txt ./
+RUN pip install --no-cache-dir -r requirements-airflow.txt
+
+# Copy the application code that Airflow needs
+COPY ./app /opt/airflow/app
+
+# Create a startup script - this needs to be done as root
+USER root
+
+# This script is to initialise the db and create the first user, it needs to run once and then be commented out
+# COPY <<EOF /entrypoint.sh
+# #!/bin/bash
+# airflow db init -v
+# airflow users create --username airflow --password airflow --firstname Anastasios --lastname Anastasiadis --role Admin --email anastasiadis2345@gmail.com
+# exec "\$@"
+# EOF
+# RUN chmod +x /entrypoint.sh
+
+# Switch back to airflow user
+USER airflow
+
+# Set PythonPath
+ENV PYTHONPATH="/opt/airflow"
+
+# Use our custom entrypoint
+# ENTRYPOINT ["/entrypoint.sh"]

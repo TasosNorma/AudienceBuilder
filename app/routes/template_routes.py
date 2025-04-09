@@ -6,7 +6,7 @@ from ..database.database import SessionLocal
 from ..database.models import Prompt, Profile, User, Post,Schedule, Blog, BlogProfileComparison,ProfileComparison, Group, Group_Comparison
 import logging
 from cryptography.fernet import Fernet
-from ..core.helper_handlers import Schedule_Handler, User_Handler, LinkedIn_Auth_Handler, X_Auth_Handler
+from ..core.helper_handlers import User_Handler, LinkedIn_Auth_Handler, X_Auth_Handler
 from flask_wtf.csrf import generate_csrf
 from time import sleep
 from urllib.parse import urlencode
@@ -411,81 +411,6 @@ def profile_comparison_profile(comparison_id):
             'profile_comparison_profile.html',
             comparison = comparison
         )
-
-@tmpl.route('/schedule', methods=['GET','POST'])
-@login_required
-def schedule():
-    form = ScheduleForm()
-    db = SessionLocal()
-    schedule_handler = Schedule_Handler(current_user.id)
-    
-    try:
-        schedules = db.query(Schedule).filter(Schedule.user_id == current_user.id).order_by(Schedule.created_at.desc()).all()
-        csrf_token = generate_csrf()
-            
-        if form.validate_on_submit():
-            schedule_handler.create_blog_schedule(
-                url=form.url.data,
-                minutes=form.minutes.data
-            )
-            sleep(0.5)
-            flash('Schedule Added Successfully.', 'info')
-            return redirect(url_for('tmpl.schedule'))
-                
-        return render_template('schedule.html', 
-                             form=form,  
-                             schedules=schedules,
-                             csrf_token=csrf_token)
-    except Exception as e:
-        logging.error("Error in schedule route: %s", str(e), exc_info=True)
-        flash(f"Error : {str(e)}", 'error')
-        return render_template('schedule.html', 
-                             form=form, 
-                             result=str(e), 
-                             schedules=schedules)
-    finally:
-        db.close()
-
-@tmpl.route('/schedule/<int:schedule_id>', methods=['GET'])
-@login_required
-def schedule_profile(schedule_id):
-    with SessionLocal() as db:
-        try:
-            schedule_obj = db.query(Schedule).filter_by(
-                id=schedule_id, 
-                user_id=current_user.id
-            ).first()
-            if not schedule_obj:
-                flash("Schedule not found or access denied", "error")
-                return redirect(url_for('tmpl.schedule'))        
-            associated_blogs = db.query(Blog).filter_by(schedule_id=schedule_id).order_by(Blog.created_at.desc()).all()
-            schedule = {
-                "id": schedule_obj.id,
-                "name": schedule_obj.name,
-                "url": schedule_obj.url,
-                "minutes": schedule_obj.minutes,
-                "created_at": schedule_obj.created_at,
-                "is_active": schedule_obj.is_active,
-                "last_run_at": schedule_obj.last_run_at,
-                "blogs": [
-                    {
-                        "id": blog.id,
-                        "url": blog.url,
-                        "status": blog.status,
-                        "created_at": blog.created_at,
-                        "number_of_articles": blog.number_of_articles,
-                        "number_of_fitting_articles": blog.number_of_fitting_articles,
-                        "error_message": blog.error_message
-                    }
-                    for blog in associated_blogs
-                ]
-            }
-            return render_template('schedule_profile.html', schedule=schedule)
-        
-        except Exception as e:
-            logging.error(f"Error in schedule detail route: {str(e)}")
-            flash(f'An error occurred while processing your request: {str(e)}', 'error')
-            return redirect(url_for('tmpl.schedule'))
 
 @tmpl.route('/blogs', methods=['GET', 'POST'])
 @login_required

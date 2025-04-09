@@ -1,10 +1,7 @@
 from ..database.database import SessionLocal
 from ..database.models import Schedule,User,BlogProfileComparison,Post,Prompt
-from ..celery_worker.config import beat_dburi
-from sqlalchemy_celery_beat.models import PeriodicTask, IntervalSchedule, Period
-from sqlalchemy_celery_beat.session import SessionManager
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import os
 import requests
@@ -607,10 +604,46 @@ class X_Client_Handler:
             logging.error(f"Error checking rate limit for {endpoint}: {str(e)}")
             raise e
 
-if __name__ == "__main__":
-    try:
-        x = X_Client_Handler(31)
-        print(x.create_thread_text(["Test1", "Test2"]))
-        #print(x.check_endpoint_rate_limit("tweets"))
-    except Exception as e:
-        print(f"Error testing X API: {str(e)}")
+class AirflowHandler:
+    def __init__(self):
+        self.airflow_api_url = os.environ.get("AIRFLOW_API_URL")
+        self.airflow_username = os.environ.get("AIRFLOW_USERNAME")
+        self.airflow_password = os.environ.get("AIRFLOW_PASSWORD") 
+        
+    def trigger_dag(self, dag_id, conf=None):
+        """
+        Trigger an Airflow DAG run with the given configuration
+        
+        Args:
+            dag_id (str): The ID of the DAG to trigger
+            conf (dict): Configuration parameters to pass to the DAG
+            
+        Returns:
+            dict: Response from the Airflow API
+        """
+        if conf is None:
+            conf = {}
+            
+        endpoint = f"{self.airflow_api_url}/dags/{dag_id}/dagRuns"
+        
+        payload = {
+            "conf": conf,
+            "logical_date": datetime.now(timezone.utc).isoformat()
+        }
+        
+        try:
+            response = requests.post(
+                endpoint,
+                json=payload,
+                auth=(self.airflow_username, self.airflow_password)
+            )
+            
+            if response.status_code not in [200, 201]:
+                logging.error(f"Failed to trigger DAG {dag_id}: {response.status_code} {response.text}")
+                raise Exception(f"Airflow API error: {response.status_code}")
+                
+            return response.json()
+            
+        except Exception as e:
+            logging.error(f"Error triggering Airflow DAG: {str(e)}")
+            raise

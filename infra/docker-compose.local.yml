@@ -16,18 +16,20 @@ services:
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_KEY=${SUPABASE_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - CELERY_BROKER_URL=redis://:RDga5zyMvEbhSeA9@redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://:RDga5zyMvEbhSeA9@redis:6379/0
-    depends_on:
-      - redis
+      - AIRFLOW_USERNAME=${AIRFLOW_USERNAME}
+      - AIRFLOW_PASSWORD=${AIRFLOW_PASSWORD}
+      - AIRFLOW_API_URL=${AIRFLOW_API_URL}
     networks:
       - app-network
 
-  celery-worker:
+  airflow-webserver:
     build:
       context: ..
-      dockerfile: infra/Dockerfile.worker
-    command: celery -A app.celery_worker.config:celery_app worker --loglevel=info --concurrency=10 --max-memory-per-child=400000
+      dockerfile: infra/Dockerfile.airflow
+    depends_on:
+      - flask-app
+    ports:
+      - "8080:8080"
     env_file:
       - .env
     environment:
@@ -37,18 +39,24 @@ services:
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_KEY=${SUPABASE_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - CELERY_BROKER_URL=redis://:RDga5zyMvEbhSeA9@redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://:RDga5zyMvEbhSeA9@redis:6379/0
-    depends_on:
-      - redis
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=${AIRFLOW_DATABASE_URL}
+      - AIRFLOW__CORE__FERNET_KEY=${ENCRYPTION_KEY}
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${SECRET_KEY}
+      - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/app/airflow/dags
+      - AIRFLOW__CORE__PLUGINS_FOLDER=/opt/airflow/app/airflow/plugins
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
+    command: airflow webserver
     networks:
       - app-network
 
-  celery-beat:
+  airflow-scheduler:
     build:
       context: ..
-      dockerfile: infra/Dockerfile.worker
-    command: celery -A app.celery_worker.config:celery_app beat --loglevel=info 
+      dockerfile: infra/Dockerfile.airflow
+    depends_on:
+      - airflow-webserver
     env_file:
       - .env
     environment:
@@ -58,35 +66,18 @@ services:
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_KEY=${SUPABASE_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - CELERY_BROKER_URL=redis://:RDga5zyMvEbhSeA9@redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://:RDga5zyMvEbhSeA9@redis:6379/0
-    depends_on:
-      - redis
-      - celery-worker
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=${AIRFLOW_DATABASE_URL}
+      - AIRFLOW__CORE__FERNET_KEY=${ENCRYPTION_KEY}
+      - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/app/airflow/dags
+      - AIRFLOW__CORE__PLUGINS_FOLDER=/opt/airflow/app/airflow/plugins
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
+    command: airflow scheduler
     networks:
       - app-network
 
-  redis:
-    image: redis:latest
-    volumes:
-      - redis-data:/data
-      - ./redis.conf:/usr/local/etc/redis/redis.conf
-    networks:
-      - app-network
-    env_file:
-      - .env
-    hostname: redis
-    container_name: redis
-    command: redis-server /usr/local/etc/redis/redis.conf --appendonly yes --save "" --stop-writes-on-bgsave-error no # Changes the way we store backups in the disk to have less chance of corruption.
-    healthcheck: # Will not start other containers if this fails
-      test: ["CMD", "redis-cli", "ping"] 
-      interval: 5s  
-      retries: 5 
   
 networks:
   app-network:
     driver: bridge
-
-volumes:
-  redis-data:
-    driver: local #With this, the redis data survives when machine stops and restarts or docker down and up again.

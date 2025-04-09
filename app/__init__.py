@@ -28,7 +28,7 @@ def create_app():
         db.close()
         return user
 
-    app.debug = False
+    app.debug = True
     logging.basicConfig(level=logging.WARNING)
     app.register_blueprint(api)
     app.register_blueprint(tmpl)
@@ -37,7 +37,7 @@ def create_app():
     csrf.init_app(app)
 
     # Disable Flask development server logging
-    app.logger.disabled = True
-    logging.getLogger('werkzeug').disabled = True
+    app.logger.disabled = False
+    logging.getLogger('werkzeug').disabled = False
     
     return app
