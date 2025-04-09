@@ -5,7 +5,7 @@ from ..database.models import BlogProfileComparison,Post, Prompt, Group, Group_C
 import logging
 import os
 import secrets
-from ..core.helper_handlers import Blog_Profile_Comparison_Handler, LinkedIn_Client_Handler, X_Client_Handler, AirflowHandler
+from ..core.helper_handlers import Blog_Profile_Comparison_Handler, LinkedIn_Client_Handler, X_Client_Handler, AirflowHandler, Schedule_Handler
 
 
 api = Blueprint('api',__name__)
@@ -510,3 +510,23 @@ def ignore_and_learn():
             "status": "error",
             "message": str(e)
         }), 500
+    
+@api.route('/disable_schedule/<int:schedule_id>', methods=['POST'])
+@login_required
+def disable_schedule(schedule_id):
+    try:
+        schedule_handler = Schedule_Handler(user_id=current_user.id)
+        schedule_handler.disable_schedule(schedule_id=schedule_id)
+        return jsonify({
+            "status": "success",
+            "message": "Schedule disabled successfully"
+        })
+    except Exception as e:
+        logging.error(f"Error disabling schedule: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+

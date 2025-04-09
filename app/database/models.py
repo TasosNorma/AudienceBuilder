@@ -112,8 +112,6 @@ class Schedule(Base):
     name = Column(String(255), nullable=False)
     url = Column(String(2048), nullable=False)
     minutes = Column(Integer, nullable=False)
-    interval_schedule_id = Column(Integer, nullable=False)
-    periodic_task_id = Column(Integer, nullable=True)
     last_run_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), 

@@ -1,3 +1,4 @@
+alembic==1.12.1
 aiohttp==3.11.7
 Flask==3.1.0
 Flask-Login==0.6.3

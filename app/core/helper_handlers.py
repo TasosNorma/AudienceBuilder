@@ -16,105 +16,54 @@ class Schedule_Handler:
         self.user_id = user_id
         
     def create_blog_schedule(self, url: str,minutes: int):
-        app_db = SessionLocal()
-        try:
-            # Create celery schedule
-            session_manager = SessionManager()
-            beat_session = session_manager.session_factory(beat_dburi)
-            
-            interval_schedule = IntervalSchedule(
-                every=minutes,
-                period=Period.MINUTES
-            )
-            beat_session.add(interval_schedule)
-            beat_session.flush()  # Flush to get the ID
+        with SessionLocal() as db:
+            try:
+                # MAKE BEAUTIFUL NAME FOR SCHEDULE AUTOMATICALLY.
 
-            # MAKE BEAUTIFUL NAME FOR SCHEDULE AUTOMATICALLY.
+                # Extract domain and path for a more meaningful name
+                parsed_url = urlparse(url)
+                domain = parsed_url.netloc.replace('www.', '')
+                path = parsed_url.path.strip('/')
+                # Remove .com, .org, etc. from domain
+                domain = re.sub(r'\.[a-z]+$', '', domain)
+                # Create a more meaningful task name
+                if path:
+                    task_name = f'{domain.capitalize()}/{path}'
+                else:
+                    task_name = f'{domain.capitalize()}'
+                # Fallback to timestamp if we couldn't extract a proper name
+                if not task_name:
+                    task_name = f'blogs{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+                
+                schedule = Schedule(
+                    user_id=self.user_id,
+                    name=task_name,
+                    url=url,
+                    minutes=minutes,
+                    last_run_at=datetime.now(timezone.utc),
+                    created_at=datetime.now(timezone.utc),
+                    updated_at=datetime.now(timezone.utc),
+                    is_active=True
+                )
+                db.add(schedule)
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                logging.error(f"Error creating schedule: {str(e)}")
+                raise e
 
-            # Extract domain and path for a more meaningful name
-            parsed_url = urlparse(url)
-            domain = parsed_url.netloc.replace('www.', '')
-            path = parsed_url.path.strip('/')
-            # Remove .com, .org, etc. from domain
-            domain = re.sub(r'\.[a-z]+$', '', domain)
-            # Create a more meaningful task name
-            if path:
-                task_name = f'{domain.capitalize()}/{path}'
-            else:
-                task_name = f'{domain.capitalize()}'
-            # Fallback to timestamp if we couldn't extract a proper name
-            if not task_name:
-                task_name = f'blogs{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-            
-            schedule = Schedule(
-            user_id=self.user_id,
-            name=task_name,
-            url=url,
-            minutes=minutes,
-            interval_schedule_id=interval_schedule.id
-            )
-            app_db.add(schedule)
-            app_db.flush()
-            
-            # Create unique periodic task name with user ID and timestamp
-            periodic_task_name = f'blog_analyse_user_{self.user_id}_{task_name}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-            interval_task = PeriodicTask(
-                schedule_model=interval_schedule,
-                name=periodic_task_name,
-                task='app.celery_worker.tasks.blog_analyse',
-                args=json.dumps([url, self.user_id, schedule.id]),
-                kwargs=json.dumps({}),
-                description='Scheduled URL processing task'
-            )
-            beat_session.add(interval_task)
-            beat_session.flush()  # Flush to get the ID
-            schedule.periodic_task_id = interval_task.id
-            
-            # Commit both sessions
-            beat_session.commit()
-            app_db.commit()
-        except Exception as e:
-            beat_session.rollback()
-            app_db.rollback()
-            logging.error(f"Error creating scheduled task: {str(e)}")
-            raise e
-        finally:
-            beat_session.close()
-            app_db.close()
 
     def disable_schedule(self,schedule_id:int):
-        app_db = SessionLocal()
-        session_manager = SessionManager()
-        beat_session = session_manager.session_factory(beat_dburi)
-
-        try:
-            # Get the schedule from our application database
-            schedule = app_db.query(Schedule).filter_by(id=schedule_id,user_id=self.user_id).first()
-            if not schedule:
-                return {
-                    "status": "error",
-                    "message": f"Schedule with id {schedule_id} not found or access denied"
-                }
-
-            # Disable the periodic task in beat database
-            periodic_task = beat_session.query(PeriodicTask).filter_by(id=schedule.periodic_task_id).first()
-            if periodic_task:
-                periodic_task.enabled = False
-            
-            # Mark our schedule as inactive
-            schedule.is_active = False
-            
-            # Commit both changes
-            beat_session.commit()
-            app_db.commit()
-        except Exception as e:
-            beat_session.rollback()
-            app_db.rollback()
-            logging.error(f"Error disabling schedule: {str(e)}")
-            raise e
-        finally:
-            beat_session.close()
-            app_db.close()
+        with SessionLocal() as db:
+            try:
+                # Get the schedule from our application database
+                schedule = db.query(Schedule).filter_by(id=schedule_id,user_id=self.user_id).first()
+                schedule.is_active = False
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                logging.error(f"Error disabling schedule: {str(e)}")
+                raise e
              
 class Blog_Profile_Comparison_Handler:    
     @classmethod
