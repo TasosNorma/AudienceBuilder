@@ -8,4 +8,5 @@ infra/docker-compose.local.yml
 alembic.ini
 alembic
 airflow_venv/
+frontend/
 
