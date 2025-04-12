@@ -498,7 +498,6 @@ def ignore_and_learn():
                 "status": "error",
                 "message": "Comparison ID is required"
             }), 400
-        logging.warning(f"User {current_user.id} is ignoring and learning from comparison {comparison_id}")
         AirflowHandler().trigger_dag(dag_id='ignore_and_learn_task', conf={'user_id': current_user.id, 'comparison_id': comparison_id})
         return jsonify({
             "status": "success",

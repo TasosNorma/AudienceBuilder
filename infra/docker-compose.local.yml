@@ -22,6 +22,8 @@ services:
     networks:
       - app-network
 
+
+# In Command , "--access-logfile /dev/null" is to tell the webserver to not show logs for all the get and post requests it receives.
   airflow-webserver:
     build:
       context: ..
@@ -40,16 +42,18 @@ services:
       - SUPABASE_KEY=${SUPABASE_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=${AIRFLOW_DATABASE_URL}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW_DATABASE_URL}
+      - AIRFLOW__LOGGING__LOGGING_LEVEL=WARNING
       - AIRFLOW__CORE__FERNET_KEY=${ENCRYPTION_KEY}
       - AIRFLOW__WEBSERVER__SECRET_KEY=${SECRET_KEY}
       - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/app/airflow/dags
       - AIRFLOW__CORE__PLUGINS_FOLDER=/opt/airflow/app/airflow/plugins
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
-    command: airflow webserver
+      - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+    command: airflow webserver --access-logfile /dev/null 
     networks:
       - app-network
+
 
   airflow-scheduler:
     build:
@@ -66,13 +70,14 @@ services:
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_KEY=${SUPABASE_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AIRFLOW__LOGGING__LOGGING_LEVEL=WARNING
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=${AIRFLOW_DATABASE_URL}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW_DATABASE_URL}
       - AIRFLOW__CORE__FERNET_KEY=${ENCRYPTION_KEY}
       - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/app/airflow/dags
       - AIRFLOW__CORE__PLUGINS_FOLDER=/opt/airflow/app/airflow/plugins
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
+      - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
     command: airflow scheduler
     networks:
       - app-network
